@@ -1,0 +1,113 @@
+// =============================================================================
+// Specular Map Kernel: Luminance-Weighted Saturation Inversion
+// =============================================================================
+// Purpose:     Compute per-pixel specular reflectance from pre-computed
+//              luminance and saturation channels. Normalizes using pre-computed
+//              min/range, applies contrast and power curve.
+//
+// Grid/Block:  2D grid, 16x16 blocks. One thread per pixel.
+//
+// Parameters:
+//   param 0:  float* luminance    -- (H*W) BT.709 luminance
+//   param 1:  float* saturation   -- (H*W) HSV saturation
+//   param 2:  float* output       -- (H*W) specular output
+//   param 3:  int    width
+//   param 4:  int    height
+//   param 5:  float  sat_weight   -- saturation reduction factor
+//   param 6:  float  contrast     -- output contrast multiplier
+//   param 7:  float  power        -- specular falloff exponent
+//   param 8:  float  spec_min     -- pre-computed min of raw specular
+//   param 9:  float  spec_range   -- pre-computed (max - min) of raw specular
+// =============================================================================
+
+.version 7.0
+.target sm_75
+.address_size 64
+
+.visible .entry specular_kernel(
+    .param .u64 param_lum,
+    .param .u64 param_sat,
+    .param .u64 param_output,
+    .param .u32 param_width,
+    .param .u32 param_height,
+    .param .f32 param_sat_weight,
+    .param .f32 param_contrast,
+    .param .f32 param_power,
+    .param .f32 param_spec_min,
+    .param .f32 param_spec_range
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height;
+    .reg .f32   sat_weight, contrast, power_val;
+    .reg .f32   spec_min, spec_range;
+    .reg .u64   ptr_lum, ptr_sat, ptr_out, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .f32   lum_val, sat_val, spec;
+    .reg .f32   pow_log;
+    .reg .pred  p_oob;
+
+    ld.param.u64 ptr_lum, [param_lum];
+    ld.param.u64 ptr_sat, [param_sat];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+    ld.param.f32 sat_weight, [param_sat_weight];
+    ld.param.f32 contrast, [param_contrast];
+    ld.param.f32 power_val, [param_power];
+    ld.param.f32 spec_min, [param_spec_min];
+    ld.param.f32 spec_range, [param_spec_range];
+
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra SPEC_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra SPEC_EXIT;
+
+    // Compute pixel offset
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+
+    // Load luminance and saturation
+    add.u64 addr, ptr_lum, off;
+    ld.global.f32 lum_val, [addr];
+    add.u64 addr, ptr_sat, off;
+    ld.global.f32 sat_val, [addr];
+
+    // spec = L * (1.0 - S * sat_weight)
+    mul.f32 spec, sat_val, sat_weight;      // S * sat_weight
+    sub.f32 spec, 1.0, spec;               // 1.0 - S*sat_weight
+    mul.f32 spec, lum_val, spec;            // L * (1 - S*sat_weight)
+
+    // Normalize: (spec - min) / range
+    sub.f32 spec, spec, spec_min;
+    div.rn.f32 spec, spec, spec_range;
+
+    // Contrast: spec * contrast, clamped to [0, 1]
+    mul.f32 spec, spec, contrast;
+    max.f32 spec, spec, 0.0;
+    min.f32 spec, spec, 1.0;
+
+    // Power curve: pow(spec, power) = exp2(power * log2(spec))
+    // Guard against log2(0)
+    max.f32 spec, spec, 0.000001;
+    lg2.approx.f32 pow_log, spec;
+    mul.f32 pow_log, pow_log, power_val;
+    ex2.approx.f32 spec, pow_log;
+
+    // Final clamp
+    max.f32 spec, spec, 0.0;
+    min.f32 spec, spec, 1.0;
+
+    // Store output
+    add.u64 addr, ptr_out, off;
+    st.global.f32 [addr], spec;
+
+SPEC_EXIT:
+    ret;
+}

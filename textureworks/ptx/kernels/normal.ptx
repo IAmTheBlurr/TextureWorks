@@ -1,0 +1,225 @@
+// =============================================================================
+// Normal Map Kernel: Sobel Gradient to Normal Encoding
+// =============================================================================
+// Purpose:     Compute per-pixel surface normals from a grayscale height field
+//              using 3x3 Sobel convolution, then encode as RGB.
+//
+// Grid/Block:  2D grid, 16x16 blocks. One thread per output pixel.
+//              grid_x = ceil(width/16), grid_y = ceil(height/16)
+//
+// Parameters (in order):
+//   param 0:  float* input_gray   -- (H*W) row-major grayscale, float32 [0,1]
+//   param 1:  float* output_rgb   -- (H*W*3) row-major interleaved RGB, float32
+//   param 2:  int    width        -- image width in pixels
+//   param 3:  int    height       -- image height in pixels
+//   param 4:  float  strength     -- depth exaggeration factor
+//
+// Memory:      Global memory only. 3x3 neighborhood loaded per thread with
+//              clamp-to-edge boundary handling.
+//
+// Output:      Normal map RGB where flat surface = (0.5, 0.5, 1.0).
+//              R = Nx*0.5+0.5, G = Ny*0.5+0.5, B = Nz*0.5+0.5
+// =============================================================================
+
+.version 7.0
+.target sm_75
+.address_size 64
+
+.visible .entry sobel_normal_kernel(
+    .param .u64 param_input,
+    .param .u64 param_output,
+    .param .u32 param_width,
+    .param .u32 param_height,
+    .param .f32 param_strength
+)
+{
+    // -- Register declarations --
+    // Pixel coordinates and temporaries
+    .reg .u32   px_x, px_y, tmp_u32, blk_u32;
+    // Image dimensions and clamping limits
+    .reg .u32   width, height, width_m1, height_m1;
+    // Strength parameter
+    .reg .f32   strength;
+    // Base pointers and address computation
+    .reg .u64   ptr_in, ptr_out, addr;
+    .reg .u32   offset_u32;
+    .reg .u64   offset_u64;
+    // Signed coords for neighbor arithmetic
+    .reg .s32   cx, cy, sx, sy;
+    // 3x3 neighborhood samples: top/mid/bottom x left/center/right
+    .reg .f32   s_tl, s_tc, s_tr, s_ml, s_mc, s_mr, s_bl, s_bc, s_br;
+    // Sobel gradients
+    .reg .f32   grad_x, grad_y;
+    // Normal vector components and normalization
+    .reg .f32   norm_x, norm_y, norm_z, norm_len, inv_len;
+    // Encoded RGB output
+    .reg .f32   enc_r, enc_g, enc_b;
+    // Boundary check predicates
+    .reg .pred  p_oob_x, p_oob_y, p_oob;
+    // Output stride
+    .reg .u32   stride3;
+
+    // -- Load kernel parameters --
+    ld.param.u64    ptr_in, [param_input];
+    ld.param.u64    ptr_out, [param_output];
+    ld.param.u32    width, [param_width];
+    ld.param.u32    height, [param_height];
+    ld.param.f32    strength, [param_strength];
+
+    // -- Compute global pixel coordinates --
+    // px_x = blockIdx.x * blockDim.x + threadIdx.x
+    mov.u32         px_x, %tid.x;
+    mov.u32         tmp_u32, %ctaid.x;
+    mov.u32         blk_u32, %ntid.x;
+    mad.lo.u32      px_x, tmp_u32, blk_u32, px_x;
+    // px_y = blockIdx.y * blockDim.y + threadIdx.y
+    mov.u32         px_y, %tid.y;
+    mov.u32         tmp_u32, %ctaid.y;
+    mov.u32         blk_u32, %ntid.y;
+    mad.lo.u32      px_y, tmp_u32, blk_u32, px_y;
+
+    // -- Boundary check: exit if outside image --
+    setp.ge.u32     p_oob_x, px_x, width;
+    setp.ge.u32     p_oob_y, px_y, height;
+    or.pred         p_oob, p_oob_x, p_oob_y;
+    @p_oob bra      EXIT;
+
+    // -- Precompute clamping limits --
+    sub.u32         width_m1, width, 1;
+    sub.u32         height_m1, height, 1;
+    // Convert to signed for neighbor offset arithmetic
+    mov.s32         sx, px_x;
+    mov.s32         sy, px_y;
+
+    // ================================================================
+    // Load 3x3 neighborhood with clamp-to-edge boundary handling.
+    // For each neighbor: clamp coords, compute linear offset, load.
+    // Pattern: cx = clamp(sx+dx, 0, width-1)
+    //          cy = clamp(sy+dy, 0, height-1)
+    //          offset = cy * width + cx
+    //          load from ptr_in + offset * 4
+    // ================================================================
+
+    // Top-left (dx=-1, dy=-1)
+    add.s32 cx, sx, -1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    add.s32 cy, sy, -1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_tl, [addr];
+
+    // Top-center (dx=0, dy=-1)
+    mov.s32 cx, sx;
+    add.s32 cy, sy, -1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_tc, [addr];
+
+    // Top-right (dx=+1, dy=-1)
+    add.s32 cx, sx, 1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    add.s32 cy, sy, -1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_tr, [addr];
+
+    // Middle-left (dx=-1, dy=0)
+    add.s32 cx, sx, -1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    mov.s32 cy, sy;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_ml, [addr];
+
+    // Middle-center (dx=0, dy=0) -- the center pixel
+    mov.s32 cx, sx; mov.s32 cy, sy;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_mc, [addr];
+
+    // Middle-right (dx=+1, dy=0)
+    add.s32 cx, sx, 1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    mov.s32 cy, sy;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_mr, [addr];
+
+    // Bottom-left (dx=-1, dy=+1)
+    add.s32 cx, sx, -1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    add.s32 cy, sy, 1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_bl, [addr];
+
+    // Bottom-center (dx=0, dy=+1)
+    mov.s32 cx, sx;
+    add.s32 cy, sy, 1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_bc, [addr];
+
+    // Bottom-right (dx=+1, dy=+1)
+    add.s32 cx, sx, 1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    add.s32 cy, sy, 1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_br, [addr];
+
+    // ================================================================
+    // Compute Sobel gradients
+    // Kx = [-1 0 1; -2 0 2; -1 0 1]
+    // Ky = [-1 -2 -1; 0 0 0; 1 2 1]
+    // ================================================================
+
+    // Gx = -s_tl + s_tr - 2*s_ml + 2*s_mr - s_bl + s_br
+    neg.f32     grad_x, s_tl;
+    add.f32     grad_x, grad_x, s_tr;
+    fma.rn.f32  grad_x, s_ml, -2.0, grad_x;
+    fma.rn.f32  grad_x, s_mr, 2.0, grad_x;
+    sub.f32     grad_x, grad_x, s_bl;
+    add.f32     grad_x, grad_x, s_br;
+
+    // Gy = -s_tl - 2*s_tc - s_tr + s_bl + 2*s_bc + s_br
+    neg.f32     grad_y, s_tl;
+    fma.rn.f32  grad_y, s_tc, -2.0, grad_y;
+    sub.f32     grad_y, grad_y, s_tr;
+    add.f32     grad_y, grad_y, s_bl;
+    fma.rn.f32  grad_y, s_bc, 2.0, grad_y;
+    add.f32     grad_y, grad_y, s_br;
+
+    // ================================================================
+    // Construct and normalize the normal vector
+    // N = normalize(-Gx * strength, -Gy * strength, 1.0)
+    // ================================================================
+
+    mul.f32     norm_x, grad_x, strength;
+    neg.f32     norm_x, norm_x;             // norm_x = -Gx * strength
+    mul.f32     norm_y, grad_y, strength;
+    neg.f32     norm_y, norm_y;             // norm_y = -Gy * strength
+    mov.f32     norm_z, 1.0;               // norm_z = 1.0 (up)
+
+    // length = rsqrt(nx^2 + ny^2 + nz^2) -- fast reciprocal sqrt
+    // rsqrt.approx.f32 gives ~23-bit accuracy, sufficient for 8-bit output
+    mul.f32         norm_len, norm_x, norm_x;
+    fma.rn.f32      norm_len, norm_y, norm_y, norm_len;
+    fma.rn.f32      norm_len, norm_z, norm_z, norm_len;
+    rsqrt.approx.f32 inv_len, norm_len;
+    mul.f32         norm_x, norm_x, inv_len;
+    mul.f32         norm_y, norm_y, inv_len;
+    mul.f32         norm_z, norm_z, inv_len;
+
+    // ================================================================
+    // Encode to [0,1] range: (n * 0.5) + 0.5
+    // Flat surface (0,0,1) encodes as (0.5, 0.5, 1.0)
+    // ================================================================
+
+    fma.rn.f32      enc_r, norm_x, 0.5, 0.5;
+    fma.rn.f32      enc_g, norm_y, 0.5, 0.5;
+    fma.rn.f32      enc_b, norm_z, 0.5, 0.5;
+
+    // ================================================================
+    // Store interleaved RGB output
+    // output[py * width * 3 + px * 3 + channel]
+    // ================================================================
+
+    mad.lo.u32      offset_u32, px_y, width, px_x;     // pixel_index = py*width + px
+    mul.lo.u32      stride3, offset_u32, 3;             // rgb_index = pixel_index * 3
+    mul.wide.u32    offset_u64, stride3, 4;             // byte offset
+    add.u64         addr, ptr_out, offset_u64;
+    st.global.f32   [addr], enc_r;                      // R channel
+    add.u64         addr, addr, 4;
+    st.global.f32   [addr], enc_g;                      // G channel
+    add.u64         addr, addr, 4;
+    st.global.f32   [addr], enc_b;                      // B channel
+
+EXIT:
+    ret;
+}

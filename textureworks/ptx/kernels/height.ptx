@@ -1,0 +1,307 @@
+// =============================================================================
+// Height Map Kernels: Luminance Extraction with Contrast Enhancement
+// =============================================================================
+// Contains 4 kernels launched sequentially by the Python wrapper:
+//   1. height_normalize_kernel -- normalize grayscale to [0,1] using pre-computed min/max
+//   2. height_blur_h_kernel    -- horizontal Gaussian blur pass
+//   3. height_blur_v_kernel    -- vertical Gaussian blur pass
+//   4. height_contrast_kernel  -- contrast adjustment and optional invert
+//
+// Grid/Block: 2D grid, 16x16 blocks. One thread per pixel for all kernels.
+// Memory: Global memory. Blur kernels read weights from a separate GPU array.
+// =============================================================================
+
+.version 7.0
+.target sm_75
+.address_size 64
+
+// =============================================================================
+// Kernel 1: Normalize grayscale to [0,1] using pre-computed min and max
+// Parameters: input, output, width, height, lmin, lrange (=lmax-lmin)
+// =============================================================================
+.visible .entry height_normalize_kernel(
+    .param .u64 param_input,
+    .param .u64 param_output,
+    .param .u32 param_width,
+    .param .u32 param_height,
+    .param .f32 param_lmin,
+    .param .f32 param_lrange
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height;
+    .reg .f32   lmin, lrange;
+    .reg .u64   ptr_in, ptr_out, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .f32   val;
+    .reg .pred  p_oob;
+
+    ld.param.u64 ptr_in, [param_input];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+    ld.param.f32 lmin, [param_lmin];
+    ld.param.f32 lrange, [param_lrange];
+
+    // Compute pixel coordinates
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    // Bounds check
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra NORM_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra NORM_EXIT;
+
+    // Load pixel: input[py * width + px]
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_in, off;
+    ld.global.f32 val, [addr];
+
+    // Normalize: (val - lmin) / lrange
+    sub.f32 val, val, lmin;
+    div.rn.f32 val, val, lrange;
+
+    // Store result
+    add.u64 addr, ptr_out, off;
+    st.global.f32 [addr], val;
+
+NORM_EXIT:
+    ret;
+}
+
+// =============================================================================
+// Kernel 2: Horizontal Gaussian blur pass
+// Parameters: input, output, weights, radius, width, height
+// For each pixel, sum input[y, clamp(x+i)] * weights[i+radius] for i in [-radius, radius]
+// =============================================================================
+.visible .entry height_blur_h_kernel(
+    .param .u64 param_input,
+    .param .u64 param_output,
+    .param .u64 param_weights,
+    .param .s32 param_radius,
+    .param .u32 param_width,
+    .param .u32 param_height
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height;
+    .reg .s32   radius, neg_radius;
+    .reg .u64   ptr_in, ptr_out, ptr_w, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .s32   loop_i, sample_x, wi;
+    .reg .s32   width_m1;
+    .reg .f32   accum, sample_val, weight;
+    .reg .pred  p_oob, p_loop;
+
+    ld.param.u64 ptr_in, [param_input];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u64 ptr_w, [param_weights];
+    ld.param.s32 radius, [param_radius];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra BLURH_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra BLURH_EXIT;
+
+    // Precompute
+    neg.s32 neg_radius, radius;
+    sub.s32 width_m1, width, 1;
+
+    // Accumulate weighted sum along x-axis
+    mov.f32 accum, 0.0;
+    mov.s32 loop_i, neg_radius;
+
+BLURH_LOOP:
+    // sample_x = clamp(px_x + loop_i, 0, width-1)
+    add.s32 sample_x, px_x, loop_i;
+    max.s32 sample_x, sample_x, 0;
+    min.s32 sample_x, sample_x, width_m1;
+
+    // Load pixel: input[py * width + sample_x]
+    mad.lo.u32 idx, px_y, width, sample_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_in, off;
+    ld.global.f32 sample_val, [addr];
+
+    // Load weight: weights[loop_i + radius]
+    add.s32 wi, loop_i, radius;
+    mul.wide.s32 off, wi, 4;
+    add.u64 addr, ptr_w, off;
+    ld.global.f32 weight, [addr];
+
+    // accum += sample_val * weight
+    fma.rn.f32 accum, sample_val, weight, accum;
+
+    // Loop control
+    add.s32 loop_i, loop_i, 1;
+    setp.le.s32 p_loop, loop_i, radius;
+    @p_loop bra BLURH_LOOP;
+
+    // Store result
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_out, off;
+    st.global.f32 [addr], accum;
+
+BLURH_EXIT:
+    ret;
+}
+
+// =============================================================================
+// Kernel 3: Vertical Gaussian blur pass
+// Same as horizontal but iterates along y-axis
+// =============================================================================
+.visible .entry height_blur_v_kernel(
+    .param .u64 param_input,
+    .param .u64 param_output,
+    .param .u64 param_weights,
+    .param .s32 param_radius,
+    .param .u32 param_width,
+    .param .u32 param_height
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height;
+    .reg .s32   radius, neg_radius;
+    .reg .u64   ptr_in, ptr_out, ptr_w, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .s32   loop_i, sample_y, wi;
+    .reg .s32   height_m1;
+    .reg .f32   accum, sample_val, weight;
+    .reg .pred  p_oob, p_loop;
+
+    ld.param.u64 ptr_in, [param_input];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u64 ptr_w, [param_weights];
+    ld.param.s32 radius, [param_radius];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra BLURV_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra BLURV_EXIT;
+
+    neg.s32 neg_radius, radius;
+    sub.s32 height_m1, height, 1;
+
+    mov.f32 accum, 0.0;
+    mov.s32 loop_i, neg_radius;
+
+BLURV_LOOP:
+    // sample_y = clamp(px_y + loop_i, 0, height-1)
+    add.s32 sample_y, px_y, loop_i;
+    max.s32 sample_y, sample_y, 0;
+    min.s32 sample_y, sample_y, height_m1;
+
+    // Load pixel: input[sample_y * width + px_x]
+    mad.lo.u32 idx, sample_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_in, off;
+    ld.global.f32 sample_val, [addr];
+
+    // Load weight
+    add.s32 wi, loop_i, radius;
+    mul.wide.s32 off, wi, 4;
+    add.u64 addr, ptr_w, off;
+    ld.global.f32 weight, [addr];
+
+    fma.rn.f32 accum, sample_val, weight, accum;
+
+    add.s32 loop_i, loop_i, 1;
+    setp.le.s32 p_loop, loop_i, radius;
+    @p_loop bra BLURV_LOOP;
+
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_out, off;
+    st.global.f32 [addr], accum;
+
+BLURV_EXIT:
+    ret;
+}
+
+// =============================================================================
+// Kernel 4: Contrast adjustment and optional invert
+// Parameters: input (in-place), width, height, contrast, invert (0 or 1)
+// Formula: val = clamp((val - 0.5) * contrast + 0.5, 0.0, 1.0)
+// If invert: val = 1.0 - val
+// =============================================================================
+.visible .entry height_contrast_kernel(
+    .param .u64 param_data,
+    .param .u32 param_width,
+    .param .u32 param_height,
+    .param .f32 param_contrast,
+    .param .u32 param_invert
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height, do_invert;
+    .reg .f32   contrast;
+    .reg .u64   ptr, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .f32   val;
+    .reg .pred  p_oob, p_inv;
+
+    ld.param.u64 ptr, [param_data];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+    ld.param.f32 contrast, [param_contrast];
+    ld.param.u32 do_invert, [param_invert];
+
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra CONT_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra CONT_EXIT;
+
+    // Load pixel
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr, off;
+    ld.global.f32 val, [addr];
+
+    // Contrast: (val - 0.5) * contrast + 0.5
+    sub.f32 val, val, 0.5;
+    fma.rn.f32 val, val, contrast, 0.5;
+
+    // Clamp to [0, 1]
+    max.f32 val, val, 0.0;
+    min.f32 val, val, 1.0;
+
+    // Optional invert: val = 1.0 - val
+    setp.eq.u32 p_inv, do_invert, 1;
+    .reg .f32 inv_val;
+    sub.f32 inv_val, 1.0, val;
+    @p_inv mov.f32 val, inv_val;
+
+    // Store back
+    st.global.f32 [addr], val;
+
+CONT_EXIT:
+    ret;
+}

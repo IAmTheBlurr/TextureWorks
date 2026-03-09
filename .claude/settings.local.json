@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from PIL import Image; img = Image.open\\(''D:/TextureWorks/textures/test_texture3.png''\\); print\\(f''Size: {img.size}, Mode: {img.mode}''\\)\")",
+      "Bash(D:/TextureWorks/.venv/Scripts/python.exe -c \"from PIL import Image; img = Image.open\\(''D:/TextureWorks/textures/test_texture3.png''\\); print\\(f''Size: {img.size}, Mode: {img.mode}''\\)\")",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest tests/test_normal.py -v)",
+      "Bash(.venv/Scripts/python.exe --version)",
+      "Bash(.venv/Scripts/python.exe -m pytest --version)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_normal.py -v)",
+      "Bash(nvidia-smi)",
+      "Bash(# Check where nvrtc is located find /c -name \"\"nvrtc*.dll\"\")",
+      "Bash(.venv/Scripts/python.exe -c \"import cupy; print\\(cupy.__version__\\); print\\(cupy.cuda.runtime.runtimeGetVersion\\(\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \":*)",
+      "Bash(.venv/Scripts/python.exe -m pip list)",
+      "Bash(nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(python -m pytest tests/test_roughness.py -v)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_roughness.py -v)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_metallic.py tests/test_specular.py -v)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_specular.py -v)",
+      "Bash(.venv/Scripts/python -m pytest tests/ -v)",
+      "Bash(.venv/Scripts/python -m textureworks.pipeline textures/test_texture3.png --output output/ --backend ptx)",
+      "Bash(.venv/Scripts/python -m textureworks.pipeline textures/test_texture3.png --output output/ --backend cupy --map normal)",
+      "Bash(.venv/Scripts/python -c \":*)",
+      "Bash(.venv/Scripts/python -c:*)",
+      "Bash(/tmp/detailed_link_check.py:*)",
+      "Bash(python /tmp/detailed_link_check.py)",
+      "Bash(/tmp/sample_verification.py:*)",
+      "Bash(python /tmp/sample_verification.py)",
+      "Bash(/tmp/final_verification.py:*)",
+      "Bash(python /tmp/final_verification.py)",
+      "Bash(/tmp/link_breakdown.py:*)",
+      "Bash(python /tmp/link_breakdown.py)"
+    ]
+  }
+}

@@ -1,0 +1,104 @@
+// =============================================================================
+// Metallic Map Kernel: HSV Saturation/Value Thresholding
+// =============================================================================
+// Purpose:     Classify pixels as metallic or dielectric based on saturation
+//              and value channels (pre-computed by Python wrapper via CuPy).
+//
+// Grid/Block:  2D grid, 16x16 blocks. One thread per pixel.
+//
+// Parameters:
+//   param 0:  float* saturation     -- (H*W) HSV saturation channel
+//   param 1:  float* value          -- (H*W) HSV value channel
+//   param 2:  float* output         -- (H*W) metallic score output
+//   param 3:  int    width
+//   param 4:  int    height
+//   param 5:  float  sat_threshold  -- max saturation for metal
+//   param 6:  float  val_threshold  -- min value for metal
+//   param 7:  float  val_range      -- soft transition width above val_threshold
+//   param 8:  int    hard_edges     -- 0=soft, 1=binary threshold
+// =============================================================================
+
+.version 7.0
+.target sm_75
+.address_size 64
+
+.visible .entry metallic_classify_kernel(
+    .param .u64 param_sat,
+    .param .u64 param_val,
+    .param .u64 param_output,
+    .param .u32 param_width,
+    .param .u32 param_height,
+    .param .f32 param_sat_thresh,
+    .param .f32 param_val_thresh,
+    .param .f32 param_val_range,
+    .param .u32 param_hard_edges
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height, hard_edges;
+    .reg .f32   sat_thresh, val_thresh, val_range;
+    .reg .u64   ptr_sat, ptr_val, ptr_out, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .f32   sat_val, val_val;
+    .reg .f32   sat_score, val_score, metallic;
+    .reg .pred  p_oob, p_hard, p_above;
+
+    ld.param.u64 ptr_sat, [param_sat];
+    ld.param.u64 ptr_val, [param_val];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+    ld.param.f32 sat_thresh, [param_sat_thresh];
+    ld.param.f32 val_thresh, [param_val_thresh];
+    ld.param.f32 val_range, [param_val_range];
+    ld.param.u32 hard_edges, [param_hard_edges];
+
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra MET_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra MET_EXIT;
+
+    // Compute pixel offset
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+
+    // Load saturation and value
+    add.u64 addr, ptr_sat, off;
+    ld.global.f32 sat_val, [addr];
+    add.u64 addr, ptr_val, off;
+    ld.global.f32 val_val, [addr];
+
+    // sat_score = 1.0 - clamp(S / sat_threshold, 0, 1)
+    div.rn.f32 sat_score, sat_val, sat_thresh;
+    max.f32 sat_score, sat_score, 0.0;
+    min.f32 sat_score, sat_score, 1.0;
+    sub.f32 sat_score, 1.0, sat_score;
+
+    // val_score = clamp((V - val_threshold) / val_range, 0, 1)
+    sub.f32 val_score, val_val, val_thresh;
+    max.f32 val_range, val_range, 0.000001;    // prevent division by zero
+    div.rn.f32 val_score, val_score, val_range;
+    max.f32 val_score, val_score, 0.0;
+    min.f32 val_score, val_score, 1.0;
+
+    // metallic = sat_score * val_score
+    mul.f32 metallic, sat_score, val_score;
+
+    // Optional hard edges: binary threshold at 0.5
+    setp.eq.u32 p_hard, hard_edges, 1;
+    @p_hard setp.gt.f32 p_above, metallic, 0.5;
+    @p_hard selp.f32 metallic, 1.0, 0.0, p_above;
+
+    // Store output
+    add.u64 addr, ptr_out, off;
+    st.global.f32 [addr], metallic;
+
+MET_EXIT:
+    ret;
+}

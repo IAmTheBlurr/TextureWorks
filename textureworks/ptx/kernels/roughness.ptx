@@ -1,0 +1,325 @@
+// =============================================================================
+// Roughness Map Kernels: Local Variance + Edge Density Analysis
+// =============================================================================
+// Contains 3 kernels:
+//   1. roughness_variance_kernel  -- Compute local mean and variance in a window
+//   2. roughness_sobel_kernel     -- Sobel edge magnitude
+//   3. roughness_blend_kernel     -- Normalize, blend, and contrast
+//
+// Blur is handled by reusing the height map blur kernels from height.ptx
+// (loaded separately by the Python wrapper).
+//
+// Grid/Block: 2D grid, 16x16 blocks. One thread per pixel.
+// =============================================================================
+
+.version 7.0
+.target sm_75
+.address_size 64
+
+// =============================================================================
+// Kernel 1: Local variance computation
+// For each pixel, iterate over a (2*radius+1)^2 window computing mean and var.
+// Uses the formula: var = E[X^2] - E[X]^2
+// Parameters: input_gray, output_var, width, height, radius
+// =============================================================================
+.visible .entry roughness_variance_kernel(
+    .param .u64 param_input,
+    .param .u64 param_output,
+    .param .u32 param_width,
+    .param .u32 param_height,
+    .param .s32 param_radius
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height;
+    .reg .s32   radius;
+    .reg .u64   ptr_in, ptr_out, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .pred  p_oob, p_ly, p_lx;
+
+    .reg .s32   loop_dy, loop_dx, neg_radius;
+    .reg .s32   sample_x, sample_y;
+    .reg .s32   w_m1, h_m1;
+    .reg .f32   sum_val, sum_sq, count, sample_val;
+    .reg .f32   mean_val, var_val;
+
+    ld.param.u64 ptr_in, [param_input];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+    ld.param.s32 radius, [param_radius];
+
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra VAR_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra VAR_EXIT;
+
+    neg.s32 neg_radius, radius;
+    sub.s32 w_m1, width, 1;
+    sub.s32 h_m1, height, 1;
+
+    // Count = (2*radius+1)^2
+    .reg .s32 diam;
+    .reg .f32 diam_f;
+    add.s32 diam, radius, radius;
+    add.s32 diam, diam, 1;
+    cvt.rn.f32.s32 diam_f, diam;
+    mul.f32 count, diam_f, diam_f;
+
+    mov.f32 sum_val, 0.0;
+    mov.f32 sum_sq, 0.0;
+    mov.s32 loop_dy, neg_radius;
+
+VAR_LOOP_Y:
+    mov.s32 loop_dx, neg_radius;
+
+VAR_LOOP_X:
+    // Clamp sample coordinates
+    add.s32 sample_x, px_x, loop_dx;
+    max.s32 sample_x, sample_x, 0;
+    min.s32 sample_x, sample_x, w_m1;
+    add.s32 sample_y, px_y, loop_dy;
+    max.s32 sample_y, sample_y, 0;
+    min.s32 sample_y, sample_y, h_m1;
+
+    // Load sample
+    mad.lo.u32 idx, sample_y, width, sample_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_in, off;
+    ld.global.f32 sample_val, [addr];
+
+    // Accumulate sum and sum of squares
+    add.f32 sum_val, sum_val, sample_val;
+    fma.rn.f32 sum_sq, sample_val, sample_val, sum_sq;
+
+    // Inner loop control
+    add.s32 loop_dx, loop_dx, 1;
+    setp.le.s32 p_lx, loop_dx, radius;
+    @p_lx bra VAR_LOOP_X;
+
+    // Outer loop control
+    add.s32 loop_dy, loop_dy, 1;
+    setp.le.s32 p_ly, loop_dy, radius;
+    @p_ly bra VAR_LOOP_Y;
+
+    // Compute variance: var = E[X^2] - E[X]^2
+    rcp.rn.f32 count, count;                // count = 1/N
+    mul.f32 mean_val, sum_val, count;       // mean = sum / N
+    mul.f32 var_val, sum_sq, count;         // E[X^2] = sum_sq / N
+    .reg .f32 mean_sq;
+    mul.f32 mean_sq, mean_val, mean_val;    // mean^2
+    sub.f32 var_val, var_val, mean_sq;      // var = E[X^2] - mean^2
+    max.f32 var_val, var_val, 0.0;          // Numerical safety
+
+    // Store variance
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_out, off;
+    st.global.f32 [addr], var_val;
+
+VAR_EXIT:
+    ret;
+}
+
+// =============================================================================
+// Kernel 2: Sobel edge magnitude
+// Same Sobel as normal map kernel but outputs sqrt(Gx^2 + Gy^2)
+// Parameters: input_gray, output_edge, width, height
+// =============================================================================
+.visible .entry roughness_sobel_kernel(
+    .param .u64 param_input,
+    .param .u64 param_output,
+    .param .u32 param_width,
+    .param .u32 param_height
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height, width_m1, height_m1;
+    .reg .u64   ptr_in, ptr_out, addr;
+    .reg .u32   offset_u32;
+    .reg .u64   offset_u64;
+    .reg .s32   cx, cy, sx, sy;
+    .reg .f32   s_tl, s_tc, s_tr, s_ml, s_mc, s_mr, s_bl, s_bc, s_br;
+    .reg .f32   grad_x, grad_y, edge_val;
+    .reg .pred  p_oob;
+
+    ld.param.u64 ptr_in, [param_input];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra SOBEL_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra SOBEL_EXIT;
+
+    sub.u32 width_m1, width, 1;
+    sub.u32 height_m1, height, 1;
+    mov.s32 sx, px_x;
+    mov.s32 sy, px_y;
+
+    // Load 3x3 neighborhood (same pattern as normal.ptx)
+    add.s32 cx, sx, -1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    add.s32 cy, sy, -1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_tl, [addr];
+
+    mov.s32 cx, sx;
+    add.s32 cy, sy, -1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_tc, [addr];
+
+    add.s32 cx, sx, 1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    add.s32 cy, sy, -1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_tr, [addr];
+
+    add.s32 cx, sx, -1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    mov.s32 cy, sy;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_ml, [addr];
+
+    mov.s32 cx, sx; mov.s32 cy, sy;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_mc, [addr];
+
+    add.s32 cx, sx, 1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    mov.s32 cy, sy;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_mr, [addr];
+
+    add.s32 cx, sx, -1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    add.s32 cy, sy, 1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_bl, [addr];
+
+    mov.s32 cx, sx;
+    add.s32 cy, sy, 1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_bc, [addr];
+
+    add.s32 cx, sx, 1; max.s32 cx, cx, 0; min.s32 cx, cx, width_m1;
+    add.s32 cy, sy, 1; max.s32 cy, cy, 0; min.s32 cy, cy, height_m1;
+    mad.lo.u32 offset_u32, cy, width, cx; mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_in, offset_u64; ld.global.f32 s_br, [addr];
+
+    // Sobel Gx and Gy
+    neg.f32 grad_x, s_tl; add.f32 grad_x, grad_x, s_tr;
+    fma.rn.f32 grad_x, s_ml, -2.0, grad_x; fma.rn.f32 grad_x, s_mr, 2.0, grad_x;
+    sub.f32 grad_x, grad_x, s_bl; add.f32 grad_x, grad_x, s_br;
+
+    neg.f32 grad_y, s_tl; fma.rn.f32 grad_y, s_tc, -2.0, grad_y;
+    sub.f32 grad_y, grad_y, s_tr; add.f32 grad_y, grad_y, s_bl;
+    fma.rn.f32 grad_y, s_bc, 2.0, grad_y; add.f32 grad_y, grad_y, s_br;
+
+    // Edge magnitude = sqrt(Gx^2 + Gy^2)
+    mul.f32 edge_val, grad_x, grad_x;
+    fma.rn.f32 edge_val, grad_y, grad_y, edge_val;
+    sqrt.rn.f32 edge_val, edge_val;
+
+    // Store
+    mad.lo.u32 offset_u32, px_y, width, px_x;
+    mul.wide.u32 offset_u64, offset_u32, 4;
+    add.u64 addr, ptr_out, offset_u64;
+    st.global.f32 [addr], edge_val;
+
+SOBEL_EXIT:
+    ret;
+}
+
+// =============================================================================
+// Kernel 3: Blend variance and edge, apply contrast
+// Parameters: var_in, edge_in, output, width, height, alpha,
+//             var_min, var_range, edge_min, edge_range, contrast
+// =============================================================================
+.visible .entry roughness_blend_kernel(
+    .param .u64 param_var,
+    .param .u64 param_edge,
+    .param .u64 param_output,
+    .param .u32 param_width,
+    .param .u32 param_height,
+    .param .f32 param_alpha,
+    .param .f32 param_var_min,
+    .param .f32 param_var_range,
+    .param .f32 param_edge_min,
+    .param .f32 param_edge_range,
+    .param .f32 param_contrast
+)
+{
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height;
+    .reg .f32   alpha, one_minus_alpha;
+    .reg .f32   var_min, var_range, edge_min, edge_range, contrast;
+    .reg .u64   ptr_var, ptr_edge, ptr_out, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .f32   var_val, edge_val, result;
+    .reg .pred  p_oob;
+
+    ld.param.u64 ptr_var, [param_var];
+    ld.param.u64 ptr_edge, [param_edge];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+    ld.param.f32 alpha, [param_alpha];
+    ld.param.f32 var_min, [param_var_min];
+    ld.param.f32 var_range, [param_var_range];
+    ld.param.f32 edge_min, [param_edge_min];
+    ld.param.f32 edge_range, [param_edge_range];
+    ld.param.f32 contrast, [param_contrast];
+
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra BLEND_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra BLEND_EXIT;
+
+    // Compute 1 - alpha
+    sub.f32 one_minus_alpha, 1.0, alpha;
+
+    // Load and normalize variance
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_var, off;
+    ld.global.f32 var_val, [addr];
+    sub.f32 var_val, var_val, var_min;
+    div.rn.f32 var_val, var_val, var_range;
+
+    // Load and normalize edge
+    add.u64 addr, ptr_edge, off;
+    ld.global.f32 edge_val, [addr];
+    sub.f32 edge_val, edge_val, edge_min;
+    div.rn.f32 edge_val, edge_val, edge_range;
+
+    // Blend: alpha * var + (1-alpha) * edge
+    mul.f32 result, alpha, var_val;
+    fma.rn.f32 result, one_minus_alpha, edge_val, result;
+
+    // Contrast: (result - 0.5) * contrast + 0.5
+    sub.f32 result, result, 0.5;
+    fma.rn.f32 result, result, contrast, 0.5;
+    max.f32 result, result, 0.0;
+    min.f32 result, result, 1.0;
+
+    // Store
+    add.u64 addr, ptr_out, off;
+    st.global.f32 [addr], result;
+
+BLEND_EXIT:
+    ret;
+}

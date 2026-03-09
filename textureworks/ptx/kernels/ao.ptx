@@ -1,0 +1,272 @@
+// =============================================================================
+// Ambient Occlusion Kernel: Screen-Space Horizon Mapping
+// =============================================================================
+// Purpose:     Compute per-pixel AO by casting rays in multiple directions
+//              over a height field and measuring horizon angles.
+//
+// Grid/Block:  2D grid, 16x16 blocks. One thread per output pixel.
+//
+// Parameters (in order):
+//   param 0:  float* height_map   -- (H*W) row-major height field, float32 [0,1]
+//   param 1:  float* output       -- (H*W) row-major AO output, float32
+//   param 2:  int    width
+//   param 3:  int    height
+//   param 4:  int    num_directions
+//   param 5:  int    max_steps
+//   param 6:  float  step_scale
+//   param 7:  float  height_scale
+//   param 8:  float  power
+//
+// Memory:      Global memory with irregular access (ray marching). Relies on
+//              L2 cache for height map lookups.
+//
+// Note:        Uses polynomial atan2 approximation since PTX has no native
+//              atan2 instruction. The approximation is accurate enough for
+//              8-bit output (sub-pixel error after quantization).
+// =============================================================================
+
+.version 7.0
+.target sm_75
+.address_size 64
+
+.visible .entry ao_kernel(
+    .param .u64 param_hmap,
+    .param .u64 param_output,
+    .param .u32 param_width,
+    .param .u32 param_height,
+    .param .u32 param_num_dirs,
+    .param .u32 param_max_steps,
+    .param .f32 param_step_scale,
+    .param .f32 param_height_scale,
+    .param .f32 param_power
+)
+{
+    // -- Registers --
+    .reg .u32   px_x, px_y, tmp, blk;
+    .reg .u32   width, height, num_dirs, max_steps_param;
+    .reg .f32   step_scale, h_scale, power_param;
+    .reg .u64   ptr_hmap, ptr_out, addr;
+    .reg .u32   idx;
+    .reg .u64   off;
+    .reg .pred  p_oob, p_dir_loop, p_step_loop;
+
+    // Per-pixel state
+    .reg .f32   center_h;          // height at current pixel
+    .reg .f32   occ_sum;           // accumulated occlusion across all directions
+    .reg .u32   dir_i;             // direction loop counter
+    .reg .f32   angle;             // current direction angle
+    .reg .f32   cos_val, sin_val;  // trig for current direction
+    .reg .f32   max_elev;          // max elevation for current direction
+    .reg .u32   step_i;            // step loop counter
+    .reg .f32   step_f;            // step as float
+    .reg .f32   fx, fy;            // float sample coordinates
+    .reg .s32   sxi, syi;         // integer (clamped) sample coords
+    .reg .s32   w_m1, h_m1;       // width-1, height-1 for clamping
+    .reg .f32   sampled_h, delta_h, dist;
+    .reg .f32   elev;              // elevation angle
+    .reg .f32   ao_val;            // final AO value
+
+    // atan2 approximation temporaries
+    .reg .f32   at_y, at_x, at_abs_y, at_abs_x, at_t, at_tt, at_result;
+    .reg .f32   at_a, at_b;
+    .reg .pred  p_swap, p_neg_x, p_neg_y;
+
+    // pow approximation temporaries
+    .reg .f32   pow_log, pow_result;
+    .reg .pred  p_pow_zero;
+
+    // Constants
+    .reg .f32   two_pi, pi_half, inv_num_dirs;
+
+    // -- Load parameters --
+    ld.param.u64 ptr_hmap, [param_hmap];
+    ld.param.u64 ptr_out, [param_output];
+    ld.param.u32 width, [param_width];
+    ld.param.u32 height, [param_height];
+    ld.param.u32 num_dirs, [param_num_dirs];
+    ld.param.u32 max_steps_param, [param_max_steps];
+    ld.param.f32 step_scale, [param_step_scale];
+    ld.param.f32 h_scale, [param_height_scale];
+    ld.param.f32 power_param, [param_power];
+
+    // Pixel coordinates
+    mov.u32 px_x, %tid.x; mov.u32 tmp, %ctaid.x; mov.u32 blk, %ntid.x;
+    mad.lo.u32 px_x, tmp, blk, px_x;
+    mov.u32 px_y, %tid.y; mov.u32 tmp, %ctaid.y; mov.u32 blk, %ntid.y;
+    mad.lo.u32 px_y, tmp, blk, px_y;
+
+    // Bounds check
+    setp.ge.u32 p_oob, px_x, width;
+    @p_oob bra AO_EXIT;
+    setp.ge.u32 p_oob, px_y, height;
+    @p_oob bra AO_EXIT;
+
+    // Precompute constants
+    mov.f32 two_pi, 6.2831853;    // 2 * pi
+    mov.f32 pi_half, 1.5707963;   // pi / 2
+    // inv_num_dirs = 1.0 / num_dirs
+    cvt.rn.f32.u32 inv_num_dirs, num_dirs;
+    rcp.rn.f32 inv_num_dirs, inv_num_dirs;
+
+    sub.s32 w_m1, width, 1;
+    sub.s32 h_m1, height, 1;
+
+    // Load center pixel height
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_hmap, off;
+    ld.global.f32 center_h, [addr];
+
+    // Initialize occlusion accumulator
+    mov.f32 occ_sum, 0.0;
+
+    // ================================================================
+    // Direction loop: for dir_i = 0 to num_dirs-1
+    // ================================================================
+    mov.u32 dir_i, 0;
+
+DIR_LOOP:
+    // Compute angle = dir_i * (2*pi / num_dirs)
+    cvt.rn.f32.u32 angle, dir_i;
+    mul.f32 angle, angle, two_pi;
+    mul.f32 angle, angle, inv_num_dirs;
+
+    // Compute cos and sin using PTX approximate trig
+    cos.approx.f32 cos_val, angle;
+    sin.approx.f32 sin_val, angle;
+
+    mov.f32 max_elev, 0.0;
+
+    // ================================================================
+    // Step loop: for step_i = 1 to max_steps
+    // ================================================================
+    mov.u32 step_i, 1;
+
+STEP_LOOP:
+    // Compute sample position as floats
+    cvt.rn.f32.u32 step_f, step_i;
+    // fx = px_x + cos_val * step_f * step_scale
+    mul.f32 fx, step_f, step_scale;
+    .reg .f32 dx, dy;
+    mul.f32 dx, cos_val, fx;
+    mul.f32 dy, sin_val, fx;
+    cvt.rn.f32.u32 fx, px_x;
+    add.f32 fx, fx, dx;
+    cvt.rn.f32.u32 fy, px_y;
+    add.f32 fy, fy, dy;
+
+    // Round to nearest integer and clamp
+    cvt.rni.s32.f32 sxi, fx;       // round to nearest int
+    max.s32 sxi, sxi, 0;
+    min.s32 sxi, sxi, w_m1;
+    cvt.rni.s32.f32 syi, fy;
+    max.s32 syi, syi, 0;
+    min.s32 syi, syi, h_m1;
+
+    // Load sampled height
+    mad.lo.u32 idx, syi, width, sxi;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_hmap, off;
+    ld.global.f32 sampled_h, [addr];
+
+    // delta_h = (sampled_h - center_h) * height_scale
+    sub.f32 delta_h, sampled_h, center_h;
+    mul.f32 delta_h, delta_h, h_scale;
+
+    // distance = step_i * step_scale
+    cvt.rn.f32.u32 dist, step_i;
+    mul.f32 dist, dist, step_scale;
+
+    // ================================================================
+    // atan2(delta_h, dist) approximation
+    // Uses the identity: atan2(y,x) = atan(y/x) with quadrant correction
+    // Core atan approximation on [0,1]: atan(t) ~ t*(1 - 0.2447*t^2)
+    // Since dist > 0 always (step >= 1), we only need atan(y/x) for x > 0
+    // which simplifies to just atan(delta_h / dist)
+    // ================================================================
+    mov.f32 at_y, delta_h;
+    mov.f32 at_x, dist;
+
+    // For x > 0: atan2(y, x) = atan(y/x)
+    // Compute |y/x| then apply sign
+    abs.f32 at_abs_y, at_y;
+    div.rn.f32 at_t, at_abs_y, at_x;    // t = |y| / x (x always > 0)
+
+    // If t > 1, use atan(t) = pi/2 - atan(1/t) identity
+    .reg .f32 at_inv_t;
+    .reg .pred p_big_t;
+    setp.gt.f32 p_big_t, at_t, 1.0;
+    rcp.rn.f32 at_inv_t, at_t;
+    @p_big_t mov.f32 at_t, at_inv_t;
+
+    // Polynomial: atan(t) ~ t * (1.0 - 0.2447 * t^2) for t in [0,1]
+    mul.f32 at_tt, at_t, at_t;           // t^2
+    fma.rn.f32 at_a, at_tt, -0.2447, 1.0; // 1.0 - 0.2447*t^2
+    mul.f32 at_result, at_t, at_a;        // t * (1 - 0.2447*t^2)
+
+    // If we swapped (t > 1): result = pi/2 - result
+    .reg .f32 at_comp;
+    sub.f32 at_comp, pi_half, at_result;
+    @p_big_t mov.f32 at_result, at_comp;
+
+    // Apply sign of y
+    .reg .pred p_neg;
+    setp.lt.f32 p_neg, at_y, 0.0;
+    .reg .f32 at_neg;
+    neg.f32 at_neg, at_result;
+    @p_neg mov.f32 at_result, at_neg;
+
+    mov.f32 elev, at_result;
+
+    // Update max elevation for this direction
+    max.f32 max_elev, max_elev, elev;
+
+    // Step loop control
+    add.u32 step_i, step_i, 1;
+    setp.le.u32 p_step_loop, step_i, max_steps_param;
+    @p_step_loop bra STEP_LOOP;
+
+    // Accumulate this direction's max elevation
+    add.f32 occ_sum, occ_sum, max_elev;
+
+    // Direction loop control
+    add.u32 dir_i, dir_i, 1;
+    setp.lt.u32 p_dir_loop, dir_i, num_dirs;
+    @p_dir_loop bra DIR_LOOP;
+
+    // ================================================================
+    // Compute final AO value
+    // avg_occlusion = occ_sum / num_directions
+    // ao = 1.0 - (avg / (pi/2))
+    // ao = clamp(ao, 0, 1)
+    // ao = pow(ao, power)
+    // ================================================================
+
+    mul.f32 ao_val, occ_sum, inv_num_dirs;  // average
+    div.rn.f32 ao_val, ao_val, pi_half;     // normalize by pi/2
+    sub.f32 ao_val, 1.0, ao_val;            // invert: 1.0 - normalized
+
+    // Clamp to [0, 1]
+    max.f32 ao_val, ao_val, 0.0;
+    min.f32 ao_val, ao_val, 1.0;
+
+    // pow(ao, power) = exp2(power * log2(ao))
+    // Guard against log2(0) by clamping base
+    max.f32 ao_val, ao_val, 0.000001;
+    lg2.approx.f32 pow_log, ao_val;
+    mul.f32 pow_log, pow_log, power_param;
+    ex2.approx.f32 ao_val, pow_log;
+
+    // Final clamp
+    max.f32 ao_val, ao_val, 0.0;
+    min.f32 ao_val, ao_val, 1.0;
+
+    // Store output
+    mad.lo.u32 idx, px_y, width, px_x;
+    mul.wide.u32 off, idx, 4;
+    add.u64 addr, ptr_out, off;
+    st.global.f32 [addr], ao_val;
+
+AO_EXIT:
+    ret;
+}

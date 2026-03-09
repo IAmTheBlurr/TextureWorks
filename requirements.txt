@@ -1,0 +1,18 @@
+# TextureWorks Dependencies
+#
+# IMPORTANT: CuPy must match your installed CUDA toolkit version.
+# Determine your CUDA version with: nvcc --version
+#
+# Then install the matching CuPy package. Examples:
+#   CUDA 11.x:  pip install cupy-cuda11x
+#   CUDA 12.x:  pip install cupy-cuda12x
+#
+# If unsure, `pip install cupy` will attempt auto-detection.
+#
+# Install everything else from this file:
+#   pip install -r requirements.txt
+
+numpy>=1.24
+Pillow>=10.0
+click>=8.1
+pytest>=7.4
