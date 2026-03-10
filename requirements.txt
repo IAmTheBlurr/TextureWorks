@@ -6,6 +6,7 @@
 # Then install the matching CuPy package. Examples:
 #   CUDA 11.x:  pip install cupy-cuda11x
 #   CUDA 12.x:  pip install cupy-cuda12x
+#   CUDA 13.x:  pip install cupy-cuda13x
 #
 # If unsure, `pip install cupy` will attempt auto-detection.
 #
