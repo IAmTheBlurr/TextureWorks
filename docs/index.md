@@ -25,6 +25,7 @@ Learning-oriented guides. Start here if you are new to TextureWorks.
 Task-oriented recipes for specific goals.
 
 - [CLI Quick Reference](how-to/cli-reference.md): Every command, flag, and common usage pattern
+- [Parallax Occlusion Mapping in Unity](how-to/parallax-occlusion-mapping.md): Export 16-bit height and wire the HLSL function into URP Shader Graph
 - [Integrate TextureWorks Into Your Asset Pipeline](how-to/integrate-pipeline.md): Python API usage, batch processing, and map chaining
 - [Write a Custom PTX Kernel](how-to/write-custom-kernel.md): Anatomy of a PTX kernel and step-by-step guide for adding a new map type
 - [Troubleshooting Common Issues](how-to/troubleshooting.md): CUDA errors, out of memory, wrong output, and parameter tuning
@@ -38,6 +39,7 @@ Precise technical descriptions for lookup.
 - [Map Type Reference](reference/map-types.md): All six map types with parameters, defaults, valid ranges, and output encoding
 - [Output Format and Naming Conventions](reference/output-conventions.md): File naming, color encoding, value ranges, and bit depth
 - [Algorithm Specifications](algorithms.md): Full mathematical definitions for every map generation algorithm
+- [Parallax Occlusion Mapping Contract](reference/parallax-algorithm.md): Runtime ray, sampling, height polarity, and validation boundaries
 
 ## Explanation
 

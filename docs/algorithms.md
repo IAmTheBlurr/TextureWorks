@@ -5,6 +5,10 @@ Implementations in both CuPy and PTX must conform to these specifications.
 The CuPy implementation is the correctness oracle; the PTX implementation
 must produce output matching the CuPy version within the stated tolerance.
 
+The consuming shader's [Parallax Occlusion Mapping contract](reference/parallax-algorithm.md)
+specifies ray traversal through the generated height field. It uses the existing
+height implementations and optional 16-bit export.
+
 ---
 
 ## 1. Normal Map
