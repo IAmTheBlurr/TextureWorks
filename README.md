@@ -90,6 +90,7 @@ The library is headless, library-first, and built for automation. It runs in bui
 - Tolerance-based CuPy-vs-PTX comparison tool for correctness validation
 - Benchmark suite across three resolutions (1024, 2048, 4096) with median and p95 timing
 - 8-bit PNG output with standard PBR encoding conventions
+- Optional 16-bit height PNG export and a reusable Unity URP Parallax Occlusion Mapping HLSL include
 - Accepts any image format Pillow supports (PNG, JPG, BMP, TIFF)
 - RGBA input auto-converted to RGB
 
@@ -261,6 +262,20 @@ for name, data in results.items():
 ```
 
 Each generator accepts parameters documented in [docs/reference/map-types.md](docs/reference/map-types.md). For example, `generate_ao` accepts `height_scale`, `power`, `num_directions`, and `max_steps`.
+
+## Parallax Occlusion Mapping in Unity
+
+Export a height map with 16-bit precision alongside the other five maps:
+
+```bash
+python -m textureworks.pipeline textures/test_texture3.png --height-bits 16 --output output/
+```
+
+Use [TextureWorksParallax.hlsl](unity/TextureWorksParallax.hlsl) in a Shader Graph
+Custom Function to trace this height field and sample the material at the returned
+UV. It includes bounded adaptive steps, intersection refinement, and distance and
+grazing-angle fades. See the [integration guide](docs/how-to/parallax-occlusion-mapping.md)
+for ports, scale conventions, texture import settings, and Unity GPU validation.
 
 ## Quick Start: PTX Assembly
 

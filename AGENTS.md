@@ -77,6 +77,7 @@ CuPy provides the correctness oracle; PTX supports GPU learning and performance.
 | `textureworks/pipeline.py` | CLI, backend selection, map registration and orchestration |
 | `tests/` | Backend parity, shape, range, and semantic checks |
 | `benchmarks/bench.py` | GPU timing for both implementations |
+| `unity/` | Reusable HLSL for consuming generated maps in Unity |
 | `docs/algorithms.md` | Mathematical specifications and comparison tolerances |
 
 Read [contributing](docs/dev/contributing.md) and [testing](docs/dev/testing.md)
@@ -97,7 +98,9 @@ the existing tutorial, how-to, reference, and explanation structure.
   alpha and retains grayscale as `(H, W)`; check each generator's input contract
   before assuming grayscale works throughout the pipeline.
 - Generator outputs are float32 in `[0, 1]`: RGB normals or scalar `(H, W)` maps.
-  `save_map` clips and casts to 8-bit PNG named `<input_stem>_<map_type>.png`.
+  `save_map` defaults to 8-bit output; `bits=16` rounds scalar maps to 16-bit PNG.
+  The CLI selects height precision with `--height-bits 8|16`. Filenames remain
+  `<input_stem>_<map_type>.png`; loading 16-bit grayscale preserves its precision.
   Normals encode XYZ in RGB; the neutral float value is `(0.5, 0.5, 1.0)`.
   Preserve actual quantization behavior when checking encoded bytes.
 - The pipeline defaults to `ptx`. AO can reuse a height map generated earlier in
@@ -162,6 +165,10 @@ onboarding; inspect configuration again before selecting future checks.
   uses `cupyx.profiler.benchmark`, warmup, and 100 repeats at 1024, 2048, and 4096,
   reporting median and p95 GPU time. Inspect its output for per-map errors even
   if the process exits successfully. Record hardware and environment for claims.
+- For Parallax Occlusion Mapping shader changes, use the Unity GPU harness in
+  `scripts/test-unity-parallax.ps1` and inspect its preview. The integration guide
+  is `docs/how-to/parallax-occlusion-mapping.md`. Report HLSL conformance separately
+  from acceptance of a consuming Shader Graph material or target platform build.
 
 Use concise, connected prose in updates and final responses. Lead with the result,
 then relevant evidence and limitations. Explain what changed and why. Avoid canned

@@ -176,6 +176,29 @@ The `test_texture` fixture skips if `textures/test_texture3.png` is not present.
 
 `cupy.cuda.driver.CUDADriverError` during tests usually means a PTX kernel has a bug (invalid memory access, parameter mismatch). See [Troubleshooting](../how-to/troubleshooting.md).
 
+## Parallax Occlusion Mapping validation
+
+`tests/test_io.py` verifies 8-bit compatibility, actual PNG bit depth, clipping,
+16-bit round trips, and invalid input handling. `tests/test_pipeline.py` exercises
+the CLI through both backends and checks that `--height-bits` affects only height.
+
+For shader changes, run the separate GPU harness using an installed Unity 6 editor:
+
+```powershell
+.\scripts\test-unity-parallax.ps1 -UnityEditor 'C:\Program Files\Unity\Hub\Editor\6000.3.7f1\Editor\Unity.exe'
+```
+
+The harness compiles and renders the shipped HLSL with Unity's actual SRP texture
+types. Tests cover constant and ramp intersections, first ledge occlusion, R16
+sampling precision, view direction, sampler boundaries, control bounds, and fades.
+The script retains its temporary Unity project, results, and diagnostic preview
+for inspection. It requires graphics access and is not part of pytest.
+
+The initial implementation passed 24 GPU cases using Unity 6000.3.7f1, SRP Core
+17.3.0, D3D11, and RTX 5070. This is conformance evidence for the include. Acceptance
+of a complete material in the consuming project follows the checklist in the
+[integration guide](../how-to/parallax-occlusion-mapping.md).
+
 ## Further Reading
 
 - [Contributing](contributing.md) for the full checklist when adding a new map type

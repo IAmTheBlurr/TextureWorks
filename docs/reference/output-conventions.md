@@ -27,12 +27,21 @@ The default output directory is `output/`. Override it with `--output` / `-o`.
 
 ## Bit Depth
 
-All output maps are 8-bit PNG files.
+Output maps default to 8-bit PNG files. Use `--height-bits 16` to export height
+as a 16-bit grayscale PNG for Parallax Occlusion Mapping or displacement. Other
+maps retain their 8-bit encoding. The Python API exposes `save_map(..., bits=16)`
+for any scalar map.
 
 - Single-channel maps (height, AO, roughness, metallic, specular): 8-bit grayscale (mode `"L"`)
 - Normal maps: 8-bit per channel RGB (mode `"RGB"`)
 
 Internal computation uses float32. Quantization to 8-bit occurs only at the final `save_map` step: values are multiplied by 255, clipped to [0, 255], and cast to uint8.
+
+For 16-bit output, values are clipped to `[0, 1]`, multiplied by 65535, and rounded
+to the nearest unsigned integer. Maximum quantization error is half a 16-bit
+step (plus float rounding). `load_texture` preserves this precision when reading
+the grayscale image back. Extra output precision does not change the height
+algorithm or tighten the existing CuPy/PTX comparison tolerance.
 
 ## Color Encoding Per Map Type
 
@@ -59,7 +68,10 @@ Decoding formula: `normal_component = (pixel / 255.0) * 2.0 - 1.0`
 
 ## Value Ranges
 
-All internal float32 arrays use the [0.0, 1.0] range. The `save_map` function converts to [0, 255] uint8 for PNG output. The `load_texture` function converts from [0, 255] uint8 input to [0.0, 1.0] float32.
+Map outputs use float32 in `[0, 1]`. The default file conversion uses `[0, 255]`;
+16-bit grayscale uses `[0, 65535]`. Height is linear data: black is low, white
+is high. Disable sRGB conversion and select a runtime format that preserves
+16-bit precision in the consuming engine.
 
 ## Input Format
 
