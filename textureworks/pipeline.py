@@ -62,7 +62,11 @@ def generate_maps(
     "--backend", "-b", default="ptx", type=click.Choice(BACKENDS),
     help="Backend: cupy or ptx.",
 )
-def main(input_path: str, output: str, map_type: str, backend: str):
+@click.option(
+    "--height-bits", default="8", type=click.Choice(("8", "16")), show_default=True,
+    help="PNG bit depth for the height map. Other maps remain 8-bit.",
+)
+def main(input_path: str, output: str, map_type: str, backend: str, height_bits: str):
     """Generate PBR texture maps from INPUT_PATH."""
     input_path = Path(input_path)
     output_dir = Path(output)
@@ -83,7 +87,7 @@ def main(input_path: str, output: str, map_type: str, backend: str):
 
     for name, data in results.items():
         out_path = output_dir / f"{stem}_{name}.png"
-        save_map(data, out_path)
+        save_map(data, out_path, bits=int(height_bits) if name == "height" else 8)
         click.echo(f"  Saved {name} -> {out_path}")
 
     click.echo("Done.")

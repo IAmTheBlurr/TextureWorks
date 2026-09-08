@@ -19,6 +19,7 @@ python -m textureworks.pipeline INPUT_PATH [OPTIONS]
 | `--output` | `-o` | path | `output` | Output directory. Created automatically if it does not exist. |
 | `--map` | `-m` | string | `all` | Map type to generate. Choices: `normal`, `height`, `ao`, `roughness`, `metallic`, `specular`, `all`. |
 | `--backend` | `-b` | string | `ptx` | Computation backend. Choices: `cupy`, `ptx`. |
+| `--height-bits` | | choice | `8` | Height PNG precision: `8` or `16`. Has no effect if height is not requested. |
 
 ### Examples
 
@@ -53,6 +54,15 @@ python -m textureworks.pipeline textures/my_texture.png -o results/my_texture/
 ```
 
 ### Output Files
+
+Generate all maps with a 16-bit height file:
+
+```bash
+python -m textureworks.pipeline textures/test_texture3.png --height-bits 16 --output output/
+```
+
+This works with either backend. The filename stays `<input_stem>_height.png`;
+the five other maps retain their default 8-bit encoding.
 
 Output files follow the naming pattern `<input_stem>_<map_type>.png`. For input `textures/test_texture3.png`:
 

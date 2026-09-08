@@ -17,29 +17,50 @@ def load_texture(path: str | Path) -> cp.ndarray:
         cupy.ndarray with shape (H, W, 3) for RGB or (H, W) for grayscale,
         dtype float32, values in [0.0, 1.0].
     """
-    img = Image.open(path)
-    if img.mode == "RGBA":
-        img = img.convert("RGB")
-    elif img.mode not in ("RGB", "L"):
-        img = img.convert("RGB")
-    arr = np.asarray(img, dtype=np.float32) / 255.0
+    with Image.open(path) as img:
+        # Pillow versions may expose 16-bit grayscale PNG as I or I;16.
+        is_uint16 = img.mode in ("I;16", "I;16L", "I;16B", "I;16N") or (
+            img.mode == "I" and img.format == "PNG"
+        )
+        if not is_uint16 and img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        scale = 65535.0 if is_uint16 else 255.0
+        arr = np.asarray(img, dtype=np.float32) / scale
     return cp.asarray(arr)
 
 
-def save_map(data: cp.ndarray, path: str | Path) -> None:
-    """Save a GPU array as an 8-bit PNG.
+def save_map(data: cp.ndarray, path: str | Path, *, bits: int = 8) -> None:
+    """Save a GPU map, with optional 16-bit grayscale PNG precision.
 
     Args:
         data: cupy.ndarray with values in [0.0, 1.0]. Shape (H, W) for
               grayscale or (H, W, 3) for RGB.
         path: Output file path.
+        bits: 8 (default) or 16. 16 requires grayscale data and a .png path.
+
+    Raises:
+        ValueError: Unsupported bit depth, shape, nonfinite values, or 16-bit path.
     """
+    if bits not in (8, 16):
+        raise ValueError("bits must be 8 or 16")
     arr = cp.asnumpy(data)
-    arr = np.clip(arr * 255.0, 0, 255).astype(np.uint8)
-    if arr.ndim == 2:
-        img = Image.fromarray(arr, mode="L")
+    if arr.size == 0 or not (
+        arr.ndim == 2 or (arr.ndim == 3 and arr.shape[2] == 3)
+    ):
+        raise ValueError("Map must be nonempty grayscale (H, W) or RGB (H, W, 3)")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError("Map values must be finite")
+    if bits == 16:
+        if arr.ndim != 2:
+            raise ValueError("16-bit output requires a grayscale (H, W) map")
+        if Path(path).suffix.lower() != ".png":
+            raise ValueError("16-bit output requires a .png path")
+        # Round to the nearest code: at most half a 16-bit step of error.
+        encoded = np.rint(np.clip(arr, 0.0, 1.0) * 65535.0).astype(np.uint16)
     else:
-        img = Image.fromarray(arr, mode="RGB")
+        # Preserve the original 8-bit truncation, including neutral normal bytes.
+        encoded = np.clip(arr * 255.0, 0, 255).astype(np.uint8)
+    img = Image.fromarray(encoded)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     img.save(path)
 

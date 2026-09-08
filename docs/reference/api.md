@@ -21,6 +21,8 @@ Load an image file and return a float32 GPU array in [0, 1] range.
 **Returns:** `cupy.ndarray` with shape (H, W, 3) for RGB or (H, W) for grayscale, dtype float32, values in [0.0, 1.0].
 
 RGBA images are automatically converted to RGB by dropping the alpha channel.
+16-bit grayscale images retain their single channel and are divided by 65535
+when loaded, preserving height precision.
 
 **Example:**
 
@@ -35,19 +37,24 @@ print(texture.dtype)   # float32
 ### `save_map`
 
 ```python
-def save_map(data: cp.ndarray, path: str | Path) -> None
+def save_map(data: cp.ndarray, path: str | Path, *, bits: int = 8) -> None
 ```
 
-Save a GPU array as an 8-bit PNG. Creates parent directories automatically.
+Save a GPU array as an 8-bit image or a 16-bit grayscale PNG. Creates parent
+directories automatically.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `data` | `cp.ndarray` | (required) | GPU array with values in [0.0, 1.0]. Shape (H, W) for grayscale or (H, W, 3) for RGB |
 | `path` | `str \| Path` | (required) | Output file path |
+| `bits` | `int` | `8` | `8` or `16`; `16` requires a scalar `(H, W)` map and a `.png` path |
 
 **Returns:** None
 
-Values are clipped to [0, 255] and converted to uint8 before saving.
+The 8-bit path multiplies by 255, clips, and truncates to uint8. The 16-bit path
+clips to `[0, 1]`, multiplies by 65535, and rounds to the nearest uint16 value.
+Invalid shapes, nonfinite values, unsupported bit depths, and invalid 16-bit
+output paths raise `ValueError` before writing a file.
 
 **Example:**
 
@@ -55,6 +62,7 @@ Values are clipped to [0, 255] and converted to uint8 before saving.
 from textureworks.core.io import save_map
 
 save_map(normal_map, "output/test_texture3_normal.png")
+save_map(height_map, "output/test_texture3_height.png", bits=16)
 ```
 
 ### `to_grayscale`
@@ -594,5 +602,6 @@ python -m textureworks.pipeline INPUT_PATH [OPTIONS]
 | `--output`, `-o` | string | `"output"` | Output directory |
 | `--map`, `-m` | string | `"all"` | Map type: normal, height, ao, roughness, metallic, specular, or all |
 | `--backend`, `-b` | choice | `"ptx"` | Backend: `cupy` or `ptx` |
+| `--height-bits` | choice | `8` | Height PNG precision: `8` or `16`; other maps use 8 bits |
 
 See [CLI Quick Reference](../how-to/cli-reference.md) for detailed usage examples.

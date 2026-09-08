@@ -97,7 +97,9 @@ the existing tutorial, how-to, reference, and explanation structure.
   alpha and retains grayscale as `(H, W)`; check each generator's input contract
   before assuming grayscale works throughout the pipeline.
 - Generator outputs are float32 in `[0, 1]`: RGB normals or scalar `(H, W)` maps.
-  `save_map` clips and casts to 8-bit PNG named `<input_stem>_<map_type>.png`.
+  `save_map` defaults to 8-bit output; `bits=16` rounds scalar maps to 16-bit PNG.
+  The CLI selects height precision with `--height-bits 8|16`. Filenames remain
+  `<input_stem>_<map_type>.png`; loading 16-bit grayscale preserves its precision.
   Normals encode XYZ in RGB; the neutral float value is `(0.5, 0.5, 1.0)`.
   Preserve actual quantization behavior when checking encoded bytes.
 - The pipeline defaults to `ptx`. AO can reuse a height map generated earlier in
