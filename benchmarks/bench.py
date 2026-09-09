@@ -7,12 +7,17 @@ import numpy as np
 from cupyx.profiler import benchmark
 
 MAP_TYPES = ("normal", "height", "ao", "roughness", "metallic", "specular")
+MATERIAL_FIELDS = ("detail", "surface_normal", "curvature", "wear", "layer_weight")
 RESOLUTIONS = (1024, 2048, 4096)
 N_ITERS = 100
 
 
 def _get_generator(map_type: str, backend: str):
     """Lazy-import the generate function for a given map type and backend."""
+    if map_type in MATERIAL_FIELDS:
+        prefix = "cupy_ref" if backend == "cupy" else "ptx"
+        module = __import__(f"textureworks.{prefix}.material_fields",fromlist=["generate_"+map_type])
+        return getattr(module,"generate_"+map_type)
     if backend == "cupy":
         mod = __import__(f"textureworks.cupy_ref.{map_type}", fromlist=[f"generate_{map_type}"])
     else:
@@ -35,12 +40,14 @@ def bench_map(map_type: str, texture: cp.ndarray, backend: str) -> dict:
     """
     gen = _get_generator(map_type, backend)
 
+    args = (texture,) if map_type not in MATERIAL_FIELDS or map_type == "detail" else (cp.ascontiguousarray(texture[:,:,0]),)
+    if map_type == "layer_weight": args = (args[0],1-args[0],args[0])
     # Warmup
-    _ = gen(texture)
+    _ = gen(*args)
     cp.cuda.Device().synchronize()
 
     # Timed runs
-    perf = benchmark(gen, args=(texture,), n_repeat=N_ITERS, n_warmup=5)
+    perf = benchmark(gen, args=args, n_repeat=N_ITERS, n_warmup=5)
     gpu_times = perf.gpu_times * 1000  # seconds -> ms
     median = float(np.median(gpu_times))
     p95 = float(np.percentile(gpu_times, 95))
@@ -62,7 +69,7 @@ def run_benchmarks():
         print(header)
         print("-" * len(header))
 
-        for mt in MAP_TYPES:
+        for mt in MAP_TYPES + MATERIAL_FIELDS:
             try:
                 cupy_stats = bench_map(mt, texture, "cupy")
                 ptx_stats = bench_map(mt, texture, "ptx")

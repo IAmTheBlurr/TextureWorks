@@ -81,3 +81,9 @@ TextureWorks accepts any image format supported by Pillow (PIL): PNG, JPG, BMP, 
 - RGBA images are converted to RGB (alpha channel is dropped)
 - Other modes (palette, CMYK) are converted to RGB automatically
 - Grayscale input is used as-is for single-channel processing
+# Versioned material outputs
+
+The [material bundle reference](material-bundles.md) defines per-file precision,
+color space, normal convention, height reference and SHA-256 records. Bundle
+scalars use separate 16-bit generated outputs; legacy six-map defaults below
+are unchanged. Bundle centered RGB encodings have their own explicit decoder.

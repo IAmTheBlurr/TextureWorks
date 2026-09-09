@@ -1,0 +1,214 @@
+// Material fields: explicit physical derivatives, Gaussian separation, wear and
+// height-aware layer weights. PTX 7.0, sm_75; global memory, 16x16 blocks, one
+// thread per output pixel. Every entry guards x/y before any global access.
+// Input/output float32 arrays are row-major; RGB is interleaved. Host wrappers
+// validate shape/ranges. Boundary flag 0 clamps, 1 wraps, including small images.
+.version 7.0
+.target sm_75
+.address_size 64
+
+// Return one scalar/component at signed coordinates. The channel count permits
+// the same boundary operation for scalar derivatives and RGB convolution.
+.func (.reg .f32 value) read_field(.reg .b64 source, .reg .b32 x, .reg .b32 y,
+    .reg .b32 width, .reg .b32 height, .reg .b32 channels, .reg .b32 channel, .reg .b32 wrap)
+{
+    .reg .b32 sx, sy, limit, index;
+    .reg .b64 address, offset;
+    .reg .pred p;
+    setp.eq.u32 p, wrap, 0;
+    @p bra CLAMP;
+    rem.s32 sx, x, width; add.s32 sx, sx, width; rem.s32 sx, sx, width;
+    rem.s32 sy, y, height; add.s32 sy, sy, height; rem.s32 sy, sy, height;
+    bra LOAD;
+CLAMP:
+    sub.s32 limit, width, 1; max.s32 sx, x, 0; min.s32 sx, sx, limit;
+    sub.s32 limit, height, 1; max.s32 sy, y, 0; min.s32 sy, sy, limit;
+LOAD:
+    mad.lo.s32 index, sy, width, sx;
+    mad.lo.s32 index, index, channels, channel;
+    mul.wide.u32 offset, index, 4; add.u64 address, source, offset;
+    ld.global.f32 value, [address];
+    ret;
+}
+
+// Parameters: input RGB, output RGB, weights, W,H,radius,axis(0=horizontal),wrap.
+.visible .entry detail_blur(.param .u64 input_p, .param .u64 output_p,
+    .param .u64 weights_p, .param .u32 w_p, .param .u32 h_p,
+    .param .u32 radius_p, .param .u32 axis_p, .param .u32 wrap_p)
+{
+    .reg .b64 src, dst, weights, addr, off;
+    .reg .b32 x,y,w,h,a,b,radius,axis,wrap,c,i,sx,sy,index,k,three,zero;
+    .reg .f32 sum,v,weight;
+    .reg .pred p,q;
+    ld.param.u64 src,[input_p]; ld.param.u64 dst,[output_p]; ld.param.u64 weights,[weights_p];
+    ld.param.u32 w,[w_p]; ld.param.u32 h,[h_p]; ld.param.u32 radius,[radius_p];
+    ld.param.u32 axis,[axis_p]; ld.param.u32 wrap,[wrap_p];
+    mov.u32 x,%tid.x; mov.u32 a,%ctaid.x; mov.u32 b,%ntid.x; mad.lo.u32 x,a,b,x;
+    mov.u32 y,%tid.y; mov.u32 a,%ctaid.y; mov.u32 b,%ntid.y; mad.lo.u32 y,a,b,y;
+    setp.ge.u32 p,x,w; setp.ge.u32 q,y,h; or.pred p,p,q; @p ret;
+    mov.u32 c,0; mov.u32 three,3; mov.u32 zero,0;
+CHANNEL:
+    mov.f32 sum,0.0; neg.s32 i,radius;
+TAP:
+    mov.u32 sx,x; mov.u32 sy,y; setp.eq.u32 p,axis,0;
+    @p add.s32 sx,x,i; @!p add.s32 sy,y,i;
+    call.uni (v),read_field,(src,sx,sy,w,h,three,c,wrap);
+    add.s32 k,i,radius; mul.wide.u32 off,k,4; add.u64 addr,weights,off;
+    ld.global.f32 weight,[addr]; mul.rn.f32 v,v,weight; add.rn.f32 sum,sum,v;
+    add.s32 i,i,1; setp.le.s32 p,i,radius; @p bra TAP;
+    mad.lo.u32 index,y,w,x; mad.lo.u32 index,index,3,c;
+    mul.wide.u32 off,index,4; add.u64 addr,dst,off; st.global.f32 [addr],sum;
+    add.u32 c,c,1; setp.lt.u32 p,c,3; @p bra CHANNEL;
+    ret;
+}
+
+// Parameters: original RGB, low RGB, residual RGB, W,H. Neutral output is 0.5.
+.visible .entry detail_residual(.param .u64 source_p,.param .u64 low_p,
+    .param .u64 output_p,.param .u32 w_p,.param .u32 h_p)
+{
+    .reg .b64 src,low,dst,off,addr;
+    .reg .b32 x,y,w,h,a,b,index,c;
+    .reg .f32 v,l;
+    .reg .pred p,q;
+    ld.param.u64 src,[source_p]; ld.param.u64 low,[low_p]; ld.param.u64 dst,[output_p];
+    ld.param.u32 w,[w_p]; ld.param.u32 h,[h_p];
+    mov.u32 x,%tid.x; mov.u32 a,%ctaid.x; mov.u32 b,%ntid.x; mad.lo.u32 x,a,b,x;
+    mov.u32 y,%tid.y; mov.u32 a,%ctaid.y; mov.u32 b,%ntid.y; mad.lo.u32 y,a,b,y;
+    setp.ge.u32 p,x,w; setp.ge.u32 q,y,h; or.pred p,p,q; @p ret;
+    mad.lo.u32 index,y,w,x; mul.lo.u32 index,index,3; mov.u32 c,0;
+COMPONENT:
+    mul.wide.u32 off,index,4; add.u64 addr,src,off; ld.global.f32 v,[addr];
+    add.u64 addr,low,off; ld.global.f32 l,[addr]; sub.rn.f32 v,v,l;
+    mul.rn.f32 v,v,0.5; add.rn.f32 v,v,0.5; max.f32 v,v,0.0; min.f32 v,v,1.0;
+    add.u64 addr,dst,off; st.global.f32 [addr],v;
+    add.u32 index,index,1; add.u32 c,c,1; setp.lt.u32 p,c,3; @p bra COMPONENT;
+    ret;
+}
+
+// Parameters: scalar height, RGB normal, scalar encoded curvature, W,H,
+// physical dx,dy, relief meters, curvature limit in inverse meters, wrap.
+// Samples use image-down Y. Normal green is negated into tangent-up +V.
+.visible .entry surface_geometry(.param .u64 input_p,.param .u64 normal_p,
+    .param .u64 curvature_p,.param .u32 w_p,.param .u32 h_p,
+    .param .f32 dx_p,.param .f32 dy_p,.param .f32 depth_p,.param .f32 limit_p,.param .u32 wrap_p)
+{
+    .reg .b64 src,nout,kout,addr,off;
+    .reg .b32 x,y,w,h,a,b,wrap,xl,xr,yu,yd,one,zero,index;
+    .reg .f32 c,l,r,u,d,ul,ur,dl,dr,dx,dy,depth,limit;
+    .reg .f32 hx,hy,hxx,hyy,hxy,xx,yy,base,len,nx,ny,nz,k,t0,t1,t2;
+    .reg .pred p,q;
+    ld.param.u64 src,[input_p]; ld.param.u64 nout,[normal_p]; ld.param.u64 kout,[curvature_p];
+    ld.param.u32 w,[w_p]; ld.param.u32 h,[h_p]; ld.param.u32 wrap,[wrap_p];
+    ld.param.f32 dx,[dx_p]; ld.param.f32 dy,[dy_p]; ld.param.f32 depth,[depth_p]; ld.param.f32 limit,[limit_p];
+    mov.u32 x,%tid.x; mov.u32 a,%ctaid.x; mov.u32 b,%ntid.x; mad.lo.u32 x,a,b,x;
+    mov.u32 y,%tid.y; mov.u32 a,%ctaid.y; mov.u32 b,%ntid.y; mad.lo.u32 y,a,b,y;
+    setp.ge.u32 p,x,w; setp.ge.u32 q,y,h; or.pred p,p,q; @p ret;
+    mov.u32 one,1; mov.u32 zero,0;
+    add.s32 xl,x,-1; add.s32 xr,x,1; add.s32 yu,y,-1; add.s32 yd,y,1;
+    call.uni (c),read_field,(src,x,y,w,h,one,zero,wrap);
+    call.uni (l),read_field,(src,xl,y,w,h,one,zero,wrap);
+    call.uni (r),read_field,(src,xr,y,w,h,one,zero,wrap);
+    call.uni (u),read_field,(src,x,yu,w,h,one,zero,wrap);
+    call.uni (d),read_field,(src,x,yd,w,h,one,zero,wrap);
+    call.uni (ul),read_field,(src,xl,yu,w,h,one,zero,wrap);
+    call.uni (ur),read_field,(src,xr,yu,w,h,one,zero,wrap);
+    call.uni (dl),read_field,(src,xl,yd,w,h,one,zero,wrap);
+    call.uni (dr),read_field,(src,xr,yd,w,h,one,zero,wrap);
+    // Difference before physical scaling keeps flat fields exactly neutral.
+    mul.rn.f32 t0,dx,2.0; div.rn.f32 t0,depth,t0; sub.rn.f32 hx,r,l; mul.rn.f32 hx,hx,t0;
+    mul.rn.f32 t0,dy,2.0; div.rn.f32 t0,depth,t0; sub.rn.f32 hy,d,u; mul.rn.f32 hy,hy,t0;
+    sub.rn.f32 t0,r,c; sub.rn.f32 t1,l,c; add.rn.f32 hxx,t0,t1;
+    mul.rn.f32 t0,dx,dx; div.rn.f32 t0,depth,t0; mul.rn.f32 hxx,hxx,t0;
+    sub.rn.f32 t0,d,c; sub.rn.f32 t1,u,c; add.rn.f32 hyy,t0,t1;
+    mul.rn.f32 t0,dy,dy; div.rn.f32 t0,depth,t0; mul.rn.f32 hyy,hyy,t0;
+    sub.rn.f32 t0,dr,dl; sub.rn.f32 t1,ur,ul; sub.rn.f32 hxy,t0,t1;
+    mul.rn.f32 t0,dx,dy; mul.rn.f32 t0,t0,4.0; div.rn.f32 t0,depth,t0; mul.rn.f32 hxy,hxy,t0;
+    mul.rn.f32 xx,hx,hx; mul.rn.f32 yy,hy,hy;
+    add.rn.f32 base,xx,1.0; add.rn.f32 base,base,yy; sqrt.rn.f32 len,base;
+    neg.f32 nx,hx; div.rn.f32 nx,nx,len; div.rn.f32 ny,hy,len; div.rn.f32 nz,1.0,len;
+    mul.rn.f32 nx,nx,0.5; add.rn.f32 nx,nx,0.5;
+    mul.rn.f32 ny,ny,0.5; add.rn.f32 ny,ny,0.5;
+    mul.rn.f32 nz,nz,0.5; add.rn.f32 nz,nz,0.5;
+    mad.lo.u32 index,y,w,x; mul.wide.u32 off,index,12; add.u64 addr,nout,off;
+    st.global.f32 [addr],nx; st.global.f32 [addr+4],ny; st.global.f32 [addr+8],nz;
+    add.rn.f32 t0,yy,1.0; mul.rn.f32 k,t0,hxx;
+    mul.rn.f32 t0,hx,2.0; mul.rn.f32 t0,t0,hy; mul.rn.f32 t0,t0,hxy; sub.rn.f32 k,k,t0;
+    add.rn.f32 t0,xx,1.0; mul.rn.f32 t0,t0,hyy; add.rn.f32 k,k,t0;
+    mul.rn.f32 t0,base,2.0; mul.rn.f32 t0,t0,len; neg.f32 k,k;
+    div.rn.f32 k,k,t0; div.rn.f32 k,k,limit; max.f32 k,k,-1.0; min.f32 k,k,1.0;
+    mul.rn.f32 k,k,0.5; add.rn.f32 k,k,0.5;
+    mul.wide.u32 off,index,4; add.u64 addr,kout,off; st.global.f32 [addr],k;
+    ret;
+}
+
+// Parameters: curvature, authored edge, authored cavity, RGB output, W,H,
+// edge amount, cavity amount, threshold, variation, uint seed, authored flags.
+.visible .entry wear_masks(.param .u64 input_p,.param .u64 edge_p,.param .u64 cavity_p,
+    .param .u64 output_p,.param .u32 w_p,.param .u32 h_p,.param .f32 edge_amount_p,
+    .param .f32 cavity_amount_p,.param .f32 threshold_p,.param .f32 variation_p,
+    .param .u32 seed_p,.param .u32 edge_authored_p,.param .u32 cavity_authored_p)
+{
+    .reg .b64 src,ep,cp,dst,addr,off;
+    .reg .b32 x,y,w,h,a,b,index,hash,tmp,seed,ea,ca;
+    .reg .f32 s,e,c,em,cm,threshold,variation,denom,noise,t;
+    .reg .pred p,q;
+    ld.param.u64 src,[input_p]; ld.param.u64 ep,[edge_p]; ld.param.u64 cp,[cavity_p]; ld.param.u64 dst,[output_p];
+    ld.param.u32 w,[w_p]; ld.param.u32 h,[h_p]; ld.param.u32 seed,[seed_p];
+    ld.param.u32 ea,[edge_authored_p]; ld.param.u32 ca,[cavity_authored_p];
+    ld.param.f32 em,[edge_amount_p]; ld.param.f32 cm,[cavity_amount_p];
+    ld.param.f32 threshold,[threshold_p]; ld.param.f32 variation,[variation_p];
+    mov.u32 x,%tid.x; mov.u32 a,%ctaid.x; mov.u32 b,%ntid.x; mad.lo.u32 x,a,b,x;
+    mov.u32 y,%tid.y; mov.u32 a,%ctaid.y; mov.u32 b,%ntid.y; mad.lo.u32 y,a,b,y;
+    setp.ge.u32 p,x,w; setp.ge.u32 q,y,h; or.pred p,p,q; @p ret;
+    mad.lo.u32 index,y,w,x; mul.wide.u32 off,index,4; add.u64 addr,src,off;
+    ld.global.f32 s,[addr]; mul.rn.f32 s,s,2.0; sub.rn.f32 s,s,1.0;
+    sub.rn.f32 denom,1.0,threshold; sub.rn.f32 e,s,threshold;
+    neg.f32 c,s; sub.rn.f32 c,c,threshold;
+    div.rn.f32 e,e,denom; max.f32 e,e,0.0; min.f32 e,e,1.0;
+    div.rn.f32 c,c,denom; max.f32 c,c,0.0; min.f32 c,c,1.0;
+    setp.ne.u32 p,ea,0; add.u64 addr,ep,off; @p ld.global.f32 e,[addr];
+    setp.ne.u32 p,ca,0; add.u64 addr,cp,off; @p ld.global.f32 c,[addr];
+    // Integer hash deliberately wraps modulo 2^32; no floating RNG state.
+    xor.b32 hash,index,seed; shr.u32 tmp,hash,16; xor.b32 hash,hash,tmp; mul.lo.u32 hash,hash,0x7feb352d;
+    shr.u32 tmp,hash,15; xor.b32 hash,hash,tmp; mul.lo.u32 hash,hash,0x846ca68b;
+    shr.u32 tmp,hash,16; xor.b32 hash,hash,tmp; and.b32 hash,hash,0x00ffffff;
+    cvt.rn.f32.u32 noise,hash; div.rn.f32 noise,noise,16777215.0;
+    mul.rn.f32 noise,noise,variation; sub.rn.f32 t,1.0,variation; add.rn.f32 noise,noise,t;
+    mul.rn.f32 e,e,em; mul.rn.f32 e,e,noise; mul.rn.f32 c,c,cm; mul.rn.f32 c,c,noise; max.f32 t,e,c;
+    mul.wide.u32 off,index,12; add.u64 addr,dst,off;
+    st.global.f32 [addr],e; st.global.f32 [addr+4],c; st.global.f32 [addr+8],t;
+    ret;
+}
+
+// Parameters: height A/B, mask, output B weight, W,H,coverage,width,height bias.
+.visible .entry layer_weight(.param .u64 a_p,.param .u64 b_p,.param .u64 mask_p,
+    .param .u64 output_p,.param .u32 w_p,.param .u32 h_p,
+    .param .f32 coverage_p,.param .f32 width_p,.param .f32 bias_p)
+{
+    .reg .b64 ap,bp,mp,dst,addr,off;
+    .reg .b32 x,y,w,h,a,b,index;
+    .reg .f32 ha,hb,m,coverage,width,bias,s,t,v;
+    .reg .pred p,q;
+    ld.param.u64 ap,[a_p]; ld.param.u64 bp,[b_p]; ld.param.u64 mp,[mask_p]; ld.param.u64 dst,[output_p];
+    ld.param.u32 w,[w_p]; ld.param.u32 h,[h_p];
+    ld.param.f32 coverage,[coverage_p]; ld.param.f32 width,[width_p]; ld.param.f32 bias,[bias_p];
+    mov.u32 x,%tid.x; mov.u32 a,%ctaid.x; mov.u32 b,%ntid.x; mad.lo.u32 x,a,b,x;
+    mov.u32 y,%tid.y; mov.u32 a,%ctaid.y; mov.u32 b,%ntid.y; mad.lo.u32 y,a,b,y;
+    setp.ge.u32 p,x,w; setp.ge.u32 q,y,h; or.pred p,p,q; @p ret;
+    mad.lo.u32 index,y,w,x; mul.wide.u32 off,index,4;
+    add.u64 addr,ap,off; ld.global.f32 ha,[addr]; add.u64 addr,bp,off; ld.global.f32 hb,[addr];
+    add.u64 addr,mp,off; ld.global.f32 m,[addr];
+    mul.rn.f32 coverage,coverage,2.0; add.rn.f32 m,m,coverage; sub.rn.f32 m,m,1.0;
+    max.f32 m,m,0.0; min.f32 m,m,1.0;
+    sub.rn.f32 s,hb,ha; mul.rn.f32 s,s,bias; mul.rn.f32 s,s,m;
+    sub.rn.f32 v,1.0,m; mul.rn.f32 s,s,v; add.rn.f32 s,s,m;
+    setp.eq.f32 p,width,0.0; @p bra HARD;
+    mul.rn.f32 v,width,0.5; sub.rn.f32 v,0.5,v; sub.rn.f32 t,s,v;
+    div.rn.f32 t,t,width; max.f32 t,t,0.0; min.f32 t,t,1.0;
+    mul.rn.f32 v,t,2.0; sub.rn.f32 v,3.0,v; mul.rn.f32 t,t,t; mul.rn.f32 t,t,v;
+    bra STORE;
+HARD:
+    setp.ge.f32 p,s,0.5; selp.f32 t,1.0,0.0,p;
+STORE:
+    add.u64 addr,dst,off; st.global.f32 [addr],t; ret;
+}

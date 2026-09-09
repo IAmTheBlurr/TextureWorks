@@ -9,6 +9,11 @@ The consuming shader's [Parallax Occlusion Mapping contract](reference/parallax-
 specifies ray traversal through the generated height field. It uses the existing
 height implementations and optional 16-bit export.
 
+The [material field algorithms](reference/material-fields.md) specify frequency
+separation, physical normals, signed curvature, deterministic wear and material
+composition. Their inputs and physical units are explicit; the six legacy map
+contracts below retain their defaults.
+
 ---
 
 ## 1. Normal Map
