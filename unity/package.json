@@ -1,8 +1,8 @@
 {
   "name": "com.textureworks.materials",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "TextureWorks Materials",
-  "description": "TextureWorks parallax HLSL and a bounded URP material demonstration shader.",
+  "description": "TextureWorks POM, detail and two-material URP profiles with a versioned material bundle importer.",
   "unity": "6000.6",
   "dependencies": {
     "com.unity.render-pipelines.universal": "17.6.0"
