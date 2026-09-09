@@ -56,6 +56,7 @@ For contributors and maintainers.
 
 - [Adding a New Map Type](dev/contributing.md): Step-by-step checklist from algorithm spec through pipeline integration
 - [Test Architecture](dev/testing.md): How CuPy-vs-PTX comparison tests work, fixtures, and tolerance values
+- [POM Geometric Validation](dev/parallax-validation.md): Perspective comparisons, generated inputs, camera sweeps, and measured limits
 - [Project Layout](dev/project-structure.md): Directory map, file naming conventions, and module dependency graph
 
 ## Where to Go Next

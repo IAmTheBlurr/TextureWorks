@@ -21,7 +21,7 @@ Shader "Hidden/TextureWorks/ParallaxConformance"
             float4 _HeightScale;
             float4 _Steps; // minimum, maximum, refinements
             float4 _Fade; // distance, start, end
-            int _Preview;
+            int _NormalOutput;
 
             struct Varyings { float4 position : SV_POSITION; float2 uv : TEXCOORD0; };
             Varyings Vert(uint id : SV_VertexID)
@@ -39,29 +39,22 @@ Shader "Hidden/TextureWorks/ParallaxConformance"
                     _HeightMap_TexelSize, float4(1, 1, 0, 0));
                 float2 uv = _TestUV.xy;
                 float2 scale = _HeightScale.xy;
-                if (_Preview != 0)
+                if (_NormalOutput != 0)
                 {
-                    uv = float2(frac(input.uv.x * 2.0), input.uv.y);
-                    if (input.uv.x < 0.5) scale = 0.0;
+                    float2 normalUV;
+                    float normalDepth, normalInside;
+                    float3 normal;
+                    TextureWorksParallaxSurface_float(map, uv, _ViewDirection.xyz, scale,
+                        _Steps.x, _Steps.y, _Steps.z, _Fade.x, _Fade.y, _Fade.z,
+                        normalUV, normalDepth, normalInside, normal);
+                    return float4(normal, 1);
                 }
                 float2 shifted;
                 float depth, inside;
                 TextureWorksParallax_float(map, uv, _ViewDirection.xyz, scale,
                     _Steps.x, _Steps.y, _Steps.z, _Fade.x, _Fade.y, _Fade.z,
                     shifted, depth, inside);
-                if (_Preview == 0) return float4(shifted, depth, inside);
-
-                // Diagnostic surface: identical lighting, with ray correction on
-                // the right. Use the same displaced coordinate for every sample.
-                float2 delta = _HeightMap_TexelSize.xy;
-                float2 dx = ddx(uv), dy = ddy(uv);
-                float h = map.tex.SampleGrad(map.samplerstate, shifted, dx, dy).r;
-                float hx = map.tex.SampleGrad(map.samplerstate, shifted + float2(delta.x, 0), dx, dy).r;
-                float hy = map.tex.SampleGrad(map.samplerstate, shifted + float2(0, delta.y), dx, dy).r;
-                float3 normal = normalize(float3((h - hx) * 8, (h - hy) * 8, 1));
-                float light = 0.2 + 0.8 * saturate(dot(normal, normalize(float3(-0.6, 0.4, 0.7))));
-                float3 albedo = lerp(float3(0.04, 0.06, 0.08), float3(0.45, 0.63, 0.72), h);
-                return float4(albedo * light, 1);
+                return float4(shifted, depth, inside);
             }
             ENDHLSL
         }

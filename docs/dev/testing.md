@@ -191,12 +191,16 @@ For shader changes, run the separate GPU harness using an installed Unity 6 edit
 The harness compiles and renders the shipped HLSL with Unity's actual SRP texture
 types. Tests cover constant and ramp intersections, first ledge occlusion, R16
 sampling precision, view direction, sampler boundaries, control bounds, and fades.
-The script retains its temporary Unity project, results, and diagnostic preview
-for inspection. It requires graphics access and is not part of pytest.
+The script retains its temporary Unity project, results, comparison renders,
+and camera sweeps for inspection. It requires graphics access, the project's
+Python/CuPy environment, and the generated material inputs. It is not part of pytest.
 
-The initial implementation passed 24 GPU cases using Unity 6000.3.7f1, SRP Core
-17.3.0, D3D11, and RTX 5070. This is conformance evidence for the include. Acceptance
-of a complete material in the consuming project follows the checklist in the
+The suite also tests normals against analytic slopes and fades, and compares
+POM with a dense displaced mesh across four generated materials. It measures
+40 fixed cases plus 100 camera-sweep frames. See the
+[validation method](parallax-validation.md) for sampling controls, error bounds,
+and the limitations of inferred height. Acceptance of a complete material in
+the consuming project follows the checklist in the
 [integration guide](../how-to/parallax-occlusion-mapping.md).
 
 ## Further Reading

@@ -16,6 +16,14 @@ float TextureWorksParallaxDepth(
         HeightMap.samplerstate, UV, UVdx, UVdy).r);
 }
 
+float TextureWorksParallaxFade(float ViewZ, float ViewDistance, float FadeStart, float FadeEnd)
+{
+    float fade = FadeEnd > FadeStart
+        ? 1.0 - saturate((ViewDistance - FadeStart) / (FadeEnd - FadeStart))
+        : 1.0;
+    return fade * smoothstep(0.02, 0.10, ViewZ);
+}
+
 // Explicit gradients also allow the same trace to be exercised by GPU tests.
 void TextureWorksParallaxTrace(
     UnityTexture2D HeightMap, float2 UV, float2 UVdx, float2 UVdy,
@@ -35,10 +43,7 @@ void TextureWorksParallaxTrace(
         return;
 
     // Equal/reversed fade bounds disable distance fading.
-    float fade = FadeEnd > FadeStart
-        ? 1.0 - saturate((ViewDistance - FadeStart) / (FadeEnd - FadeStart))
-        : 1.0;
-    fade *= smoothstep(0.02, 0.10, view.z);
+    float fade = TextureWorksParallaxFade(view.z, ViewDistance, FadeStart, FadeEnd);
     float2 scale = max(HeightScale, 0.0) * fade;
     if (max(scale.x, scale.y) <= 0.0)
         return;
@@ -110,6 +115,41 @@ void TextureWorksParallax_float(
         MinSteps, MaxSteps, RefinementSteps, ViewDistance, FadeStart, FadeEnd,
         ParallaxUV, Depth);
     InBounds = all(ParallaxUV >= 0.0) && all(ParallaxUV <= 1.0) ? 1.0 : 0.0;
+}
+
+// Central differences of the SAME sampled field, scaled in tangent/UV units.
+// Original UV gradients preserve the height filtering used by the ray trace.
+float3 TextureWorksParallaxNormal(
+    UnityTexture2D HeightMap, float2 UV, float2 UVdx, float2 UVdy, float2 HeightScale)
+{
+    if (max(HeightScale.x, HeightScale.y) <= 0.0)
+        return float3(0, 0, 1);
+    float2 texel = HeightMap.texelSize.xy;
+    float left = TextureWorksParallaxDepth(HeightMap, UV - float2(texel.x, 0), UVdx, UVdy);
+    float right = TextureWorksParallaxDepth(HeightMap, UV + float2(texel.x, 0), UVdx, UVdy);
+    float down = TextureWorksParallaxDepth(HeightMap, UV - float2(0, texel.y), UVdx, UVdy);
+    float up = TextureWorksParallaxDepth(HeightMap, UV + float2(0, texel.y), UVdx, UVdy);
+    return normalize(float3(float2(right - left, up - down) * HeightScale / (2.0 * texel), 1));
+}
+
+// Optional convenience node: coherent lighting normals including both fades.
+// The original UV-only entry point remains available for authored normal maps.
+void TextureWorksParallaxSurface_float(
+    UnityTexture2D HeightMap, float2 UV, float3 ViewDirectionTS,
+    float2 HeightScale, float MinSteps, float MaxSteps, float RefinementSteps,
+    float ViewDistance, float FadeStart, float FadeEnd,
+    out float2 ParallaxUV, out float Depth, out float InBounds, out float3 NormalTS)
+{
+    float2 UVdx = ddx(UV), UVdy = ddy(UV);
+    TextureWorksParallaxTrace(HeightMap, UV, UVdx, UVdy, ViewDirectionTS, HeightScale,
+        MinSteps, MaxSteps, RefinementSteps, ViewDistance, FadeStart, FadeEnd,
+        ParallaxUV, Depth);
+    InBounds = all(ParallaxUV >= 0.0) && all(ParallaxUV <= 1.0) ? 1.0 : 0.0;
+    float lengthSquared = dot(ViewDirectionTS, ViewDirectionTS);
+    float viewZ = lengthSquared >= 1e-12 ? ViewDirectionTS.z * rsqrt(lengthSquared) : 0.0;
+    float2 scale = max(HeightScale, 0.0)
+        * TextureWorksParallaxFade(viewZ, ViewDistance, FadeStart, FadeEnd);
+    NormalTS = TextureWorksParallaxNormal(HeightMap, ParallaxUV, UVdx, UVdy, scale);
 }
 
 #endif

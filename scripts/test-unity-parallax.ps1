@@ -12,6 +12,15 @@ New-Item -ItemType Directory -Path (Join-Path $textureworksProject 'Packages') -
 Copy-Item -LiteralPath (Join-Path $textureworksRoot 'unity\TextureWorksParallax.hlsl') -Destination $textureworksAssets
 Copy-Item -LiteralPath (Join-Path $textureworksRoot 'tests\unity\ParallaxConformance.shader') -Destination (Join-Path $textureworksAssets 'Tests')
 Copy-Item -LiteralPath (Join-Path $textureworksRoot 'tests\unity\ParallaxConformance.cs') -Destination (Join-Path $textureworksAssets 'Tests\Editor')
+Copy-Item -LiteralPath (Join-Path $textureworksRoot 'tests\unity\ParallaxGeometry.shader') -Destination (Join-Path $textureworksAssets 'Tests')
+Copy-Item -LiteralPath (Join-Path $textureworksRoot 'tests\unity\ParallaxGeometry.cs') -Destination (Join-Path $textureworksAssets 'Tests\Editor')
+$textureworksFixtures = Join-Path $textureworksProject 'fixtures'
+Push-Location $textureworksRoot
+try {
+    & (Join-Path $textureworksRoot '.venv\Scripts\python.exe') -m scripts.prepare_parallax_validation --output $textureworksFixtures
+    if ($LASTEXITCODE -ne 0) { throw 'POM fixture generation failed' }
+} finally { Pop-Location }
+Copy-Item -LiteralPath $textureworksFixtures -Destination (Join-Path $textureworksAssets 'Fixtures') -Recurse
 
 # Use the selected editor's bundled SRP package and its matching dependencies.
 $textureworksPackages = Join-Path (Split-Path -Parent $textureworksEditor) 'Data\Resources\PackageManager\BuiltInPackages'
@@ -37,4 +46,6 @@ if (Test-Path -LiteralPath $textureworksResults) { Get-Content -LiteralPath $tex
 if ($textureworksProcess.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $textureworksResults)) {
     throw "Unity validation failed. Inspect $textureworksLog"
 }
-Write-Output "Preview: $(Join-Path $textureworksProject 'parallax-preview.png')"
+& (Join-Path $textureworksRoot '.venv\Scripts\python.exe') (Join-Path $textureworksRoot 'scripts\summarize_parallax_validation.py') (Join-Path $textureworksProject 'geometry-validation')
+if ($LASTEXITCODE -ne 0) { throw 'POM report generation failed' }
+Write-Output "Geometry comparison: $(Join-Path $textureworksProject 'geometry-validation')"

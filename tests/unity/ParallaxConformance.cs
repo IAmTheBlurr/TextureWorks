@@ -59,7 +59,7 @@ public static class TextureWorksParallaxConformance
         material.SetVector("_HeightScale", new Vector4(scale.x, scale.y, 0, 0));
         material.SetVector("_Steps", new Vector4(minSteps, maxSteps, refinements, 0));
         material.SetVector("_Fade", new Vector4(distance, fadeStart, fadeEnd, 0));
-        material.SetInt("_Preview", 0);
+        material.SetInt("_NormalOutput", 0);
     }
 
     static void Check(string name, Texture2D height, Vector2 uv, float depth,
@@ -175,21 +175,40 @@ public static class TextureWorksParallaxConformance
             float ledgeDepth = (.5f + .7f * 256 * .1f) / (1 + .7f * 256 * .4f);
             Check("first ledge intersection", ledge, new Vector2(.6f - .4f * ledgeDepth, .5f), ledgeDepth);
 
-            var panels = Height((x, y) =>
-            {
-                float px = Mathf.Repeat(x * 5 + ((int)(y * 5) % 2) * .5f, 1);
-                float py = Mathf.Repeat(y * 5, 1);
-                float bevel = Mathf.Clamp01(Mathf.Min(Mathf.Min(px, 1-px), Mathf.Min(py, 1-py)) * 12);
-                return .1f + .7f * bevel;
-            });
-            Configure(center, new Vector3(1.2f, .4f, 1), new Vector2(.12f, .12f));
-            material.SetInt("_Preview", 1);
-            var preview = Render(panels, 1024, 512);
-            var rgb = new Texture2D(1024, 512, TextureFormat.RGB24, false, true);
-            rgb.SetPixels(preview.GetPixels());
-            rgb.Apply();
-            File.WriteAllBytes("parallax-preview.png", rgb.EncodeToPNG());
+            Configure(center, view, scale);
+            material.SetInt("_NormalOutput", 1);
+            Check("flat height normal", flat, Vector2.zero, 1);
+            var slope = Height((x, y) => .1f + .4f*x + .3f*y);
+            var expectedNormal = new Vector3(-.4f*scale.x, -.3f*scale.y, 1).normalized;
+            Check("height slope normal and unequal UV scale", slope,
+                new Vector2(expectedNormal.x, expectedNormal.y), expectedNormal.z);
+            Configure(center, view, scale, distance: 15);
+            material.SetInt("_NormalOutput", 1);
+            expectedNormal = new Vector3(-.4f*scale.x*.5f, -.3f*scale.y*.5f, 1).normalized;
+            Check("normal follows distance fade", slope,
+                new Vector2(expectedNormal.x, expectedNormal.y), expectedNormal.z);
+            Configure(center, view, scale, distance: 20);
+            material.SetInt("_NormalOutput", 1);
+            Check("normal is neutral after distance fade", slope, Vector2.zero, 1);
+            Configure(center, Vector3.zero, scale);
+            material.SetInt("_NormalOutput", 1);
+            Check("normal bypasses invalid view", slope, Vector2.zero, 1);
+            Configure(center, -view, scale);
+            material.SetInt("_NormalOutput", 1);
+            Check("normal bypasses back face", slope, Vector2.zero, 1);
+            Configure(center, view, Vector2.zero);
+            material.SetInt("_NormalOutput", 1);
+            Check("normal bypasses zero depth", slope, Vector2.zero, 1);
+            Configure(center, view, -scale);
+            material.SetInt("_NormalOutput", 1);
+            Check("normal bypasses negative depth", slope, Vector2.zero, 1);
+            Configure(center, grazingView, new Vector2(.002f, .002f));
+            material.SetInt("_NormalOutput", 1);
+            expectedNormal = new Vector3(-.4f*.001f, -.3f*.001f, 1).normalized;
+            Check("normal follows angular fade", slope,
+                new Vector2(expectedNormal.x, expectedNormal.y), expectedNormal.z);
 
+            TextureWorksParallaxGeometry.Run();
             foreach (var message in ShaderUtil.GetShaderMessages(shader))
                 if (message.severity == UnityEditor.Rendering.ShaderCompilerMessageSeverity.Error)
                     throw new Exception(message.message);
