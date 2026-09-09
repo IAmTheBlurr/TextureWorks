@@ -27,7 +27,6 @@ Task-oriented recipes for specific goals.
 - [CLI Quick Reference](how-to/cli-reference.md): Every command, flag, and common usage pattern
 - [Parallax Occlusion Mapping in Unity](how-to/parallax-occlusion-mapping.md): Export 16-bit height and wire the HLSL function into URP Shader Graph
 - [Walk the Unity Material Lab](how-to/material-lab.md): Compare materials in a walkable Unity 6.6 gallery and workshop
-- [Next advanced material session](dev/material-cluster-one-prompt.md): Implementation prompt for detail, wear and material layers
 - [Integrate TextureWorks Into Your Asset Pipeline](how-to/integrate-pipeline.md): Python API usage, batch processing, and map chaining
 - [Write a Custom PTX Kernel](how-to/write-custom-kernel.md): Anatomy of a PTX kernel and step-by-step guide for adding a new map type
 - [Troubleshooting Common Issues](how-to/troubleshooting.md): CUDA errors, out of memory, wrong output, and parameter tuning
@@ -42,6 +41,8 @@ Precise technical descriptions for lookup.
 - [Output Format and Naming Conventions](reference/output-conventions.md): File naming, color encoding, value ranges, and bit depth
 - [Algorithm Specifications](algorithms.md): Full mathematical definitions for every map generation algorithm
 - [Parallax Occlusion Mapping Contract](reference/parallax-algorithm.md): Runtime ray, sampling, height polarity, and validation boundaries
+- [Material Bundles](reference/material-bundles.md): Reproducible authored inputs, batch recipes, encodings and Unity import
+- [Material Fields](reference/material-fields.md): Detail, physical normals, signed curvature, wear and two-material composition
 
 ## Explanation
 
@@ -59,6 +60,7 @@ For contributors and maintainers.
 - [Adding a New Map Type](dev/contributing.md): Step-by-step checklist from algorithm spec through pipeline integration
 - [Test Architecture](dev/testing.md): How CuPy-vs-PTX comparison tests work, fixtures, and tolerance values
 - [POM Geometric Validation](dev/parallax-validation.md): Perspective comparisons, generated inputs, camera sweeps, and measured limits
+- [Material Cluster Validation](dev/material-cluster-validation.md): Analytic GPU checks, visual review, player smoke and measured cost
 - [Project Layout](dev/project-structure.md): Directory map, file naming conventions, and module dependency graph
 
 ## Where to Go Next

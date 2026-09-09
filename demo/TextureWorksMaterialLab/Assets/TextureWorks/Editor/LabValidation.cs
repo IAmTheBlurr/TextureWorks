@@ -50,10 +50,18 @@ namespace TextureWorks.MaterialLab.Editor
             if (!SessionState.GetBool("TextureWorks.LabBatch", false) || !EditorApplication.isPlaying) return;
             if (++warmupFrames < 30) return;
             SessionState.SetBool("TextureWorks.LabBatch", false);
-            try { Validate(); Debug.Log("TEXTUREWORKS_LAB_VALIDATION_PASSED"); EditorApplication.Exit(0); }
+            try { Validate(); LabClusterValidation.Validate(); Debug.Log("TEXTUREWORKS_LAB_VALIDATION_PASSED"); EditorApplication.Exit(0); }
             catch (Exception exception) { Debug.LogException(exception); EditorApplication.Exit(1); }
         }
-        [CliCommand("lab_view", "Set a lab viewpoint (0-3) and stage (-1 exhibit defaults, 0 base, 1 normal, 2 POM).", Tags = new[] {"textureworks"})]
+        [CliCommand("lab_ready", "Read readiness after an editor Play Mode transition.", Tags = new[] {"textureworks"})]
+        public static object Ready()
+        {
+            bool ready=!EditorApplication.isCompiling && !EditorApplication.isUpdating;
+            ready &= Application.isPlaying ? Time.frameCount>5 : !EditorApplication.isPlayingOrWillChangePlaymode;
+            return new {playing=Application.isPlaying,ready};
+        }
+
+        [CliCommand("lab_view", "Set viewpoint 0-7 and stage -1 defaults, 0 base, 1 normal, 2 POM, 3 detail, 4 wear, 5 layers.", Tags = new[] {"textureworks"})]
         public static object View(int index = 0, int stage = -1)
         {
             LabController lab = UnityEngine.Object.FindAnyObjectByType<LabController>();

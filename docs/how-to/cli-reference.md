@@ -145,6 +145,24 @@ for f in textures/*.png; do
 done
 ```
 
+## Material bundles and presets
+
+Use `--bundle-preset masonry|wood|painted-metal|fine-detail` on the pipeline CLI
+for a reproducible single-material bundle. The dedicated bundle CLI accepts
+authored channels, detail and two-material composition parameters in JSON:
+
+```powershell
+.\.venv\Scripts\python.exe -m textureworks.bundle generate textures/material-cluster/masonry.json `
+  --backend ptx --output output/material-cluster-masonry
+.\.venv\Scripts\python.exe -m textureworks.bundle verify output/material-cluster-masonry
+.\.venv\Scripts\python.exe -m textureworks.bundle batch textures/material-cluster/batch.json `
+  --output output/material-cluster-collection
+```
+
+Bundle PNG and metadata requirements are stricter than the legacy image loader.
+See [material bundles](../reference/material-bundles.md) for authored precision,
+color space, physical units, parameter ranges and Unity setup.
+
 ## Tests
 
 Run all tests:
@@ -163,7 +181,7 @@ See [Testing Guide](../dev/testing.md) for test architecture details.
 
 ## Notes
 
-- The CLI does not expose per-map parameters (strength, blur_sigma, etc.). Use the [Python API](integrate-pipeline.md) for parameter customization.
+- The legacy six-map CLI does not expose per-map parameters (strength, blur_sigma, etc.). Use the [Python API](integrate-pipeline.md) for those controls; bundle recipes expose their own documented material parameters.
 - There is no `--backend=both` option. Use the comparison CLI or the Python API to compare backends.
 - RGBA images are automatically converted to RGB (alpha channel is dropped).
 - The pipeline caches the height map and passes it to the AO generator when generating all maps, avoiding redundant computation.

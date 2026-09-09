@@ -37,6 +37,17 @@ namespace TextureWorks.MaterialLab
             yield return new WaitForSeconds(1);
             CheckScreenshot(Path.Combine(directory,"player-gallery.png"));
             CheckScreenshot(Path.Combine(directory,"player-workshop.png"));
+            foreach(int viewpoint in new[]{4,5,6,3})
+            {
+                lab.SetView(viewpoint); lab.SetStage(5); lab.movingLight.animate=false; lab.movingLight.ApplyPhase(0);
+                yield return new WaitForSeconds(.35f);
+                string path=Path.Combine(directory,"player-cluster-"+viewpoint+".png");
+                ScreenCapture.CaptureScreenshot(path);
+                yield return new WaitForSeconds(.5f);
+                CheckScreenshot(path);
+            }
+            // Opt-in smoke measurements do not enable a network command server.
+            yield return LabPerformance.Measure(lab,directory,"player");
             WriteReport(directory); Application.Quit(errors.Count == 0 ? 0 : 1);
         }
         private void CheckScreenshot(string path)

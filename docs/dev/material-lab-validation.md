@@ -4,6 +4,10 @@ This is acceptance evidence for the demonstration foundation, not completion of
 the next advanced material tiers. The lab consumes the existing POM include in
 an actual URP lighting shader and a Windows player.
 
+The later [material cluster record](material-cluster-validation.md) covers the
+implemented detail, wear, two-material profile, expanded workshop and its current
+validation scripts. The dated foundation measurements below are retained as history.
+
 ## Reproduce
 
 With the editor closed, from the repository root:
