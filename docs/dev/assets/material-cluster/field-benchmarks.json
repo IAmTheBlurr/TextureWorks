@@ -1,0 +1,194 @@
+{
+  "device": {
+    "name": "NVIDIA GeForce RTX 5070",
+    "compute_capability": "12.0",
+    "total_memory_mb": 12226.5625,
+    "free_memory_mb": 11036.0,
+    "sm_count": 48,
+    "max_threads_per_block": 1024
+  },
+  "cupy": "14.0.1",
+  "conditions": "Unity editor out of Play Mode; GPU field generators only, 100 repeats after warmup, input validation included.",
+  "measurements": [
+    {
+      "resolution": 1024,
+      "generator": "detail",
+      "cupy": {
+        "median_ms": 0.6520000100135803,
+        "p95_ms": 0.8830015987157821
+      },
+      "ptx": {
+        "median_ms": 0.6776160001754761,
+        "p95_ms": 1.0020352125167846
+      }
+    },
+    {
+      "resolution": 1024,
+      "generator": "surface_normal",
+      "cupy": {
+        "median_ms": 4.649584054946899,
+        "p95_ms": 5.913809466361999
+      },
+      "ptx": {
+        "median_ms": 0.19075199961662292,
+        "p95_ms": 0.4471312135457992
+      }
+    },
+    {
+      "resolution": 1024,
+      "generator": "curvature",
+      "cupy": {
+        "median_ms": 0.6987040042877197,
+        "p95_ms": 1.209651255607605
+      },
+      "ptx": {
+        "median_ms": 0.19361600279808044,
+        "p95_ms": 0.4370463892817496
+      }
+    },
+    {
+      "resolution": 1024,
+      "generator": "wear",
+      "cupy": {
+        "median_ms": 0.5452800095081329,
+        "p95_ms": 1.0384512484073636
+      },
+      "ptx": {
+        "median_ms": 0.16422400623559952,
+        "p95_ms": 0.38557920455932615
+      }
+    },
+    {
+      "resolution": 1024,
+      "generator": "layer_weight",
+      "cupy": {
+        "median_ms": 0.5741920173168182,
+        "p95_ms": 1.2103743493556973
+      },
+      "ptx": {
+        "median_ms": 0.3964160084724427,
+        "p95_ms": 0.9118272215127944
+      }
+    },
+    {
+      "resolution": 2048,
+      "generator": "detail",
+      "cupy": {
+        "median_ms": 3.3101439476013184,
+        "p95_ms": 3.6009279012680055
+      },
+      "ptx": {
+        "median_ms": 2.8514879941940308,
+        "p95_ms": 3.196387302875519
+      }
+    },
+    {
+      "resolution": 2048,
+      "generator": "surface_normal",
+      "cupy": {
+        "median_ms": 23.61395263671875,
+        "p95_ms": 24.24796552658081
+      },
+      "ptx": {
+        "median_ms": 0.3579519987106323,
+        "p95_ms": 0.7716432213783261
+      }
+    },
+    {
+      "resolution": 2048,
+      "generator": "curvature",
+      "cupy": {
+        "median_ms": 1.9345279932022095,
+        "p95_ms": 2.4162208914756773
+      },
+      "ptx": {
+        "median_ms": 0.35467199981212616,
+        "p95_ms": 0.6481856226921081
+      }
+    },
+    {
+      "resolution": 2048,
+      "generator": "wear",
+      "cupy": {
+        "median_ms": 1.924351990222931,
+        "p95_ms": 2.4132080078125
+      },
+      "ptx": {
+        "median_ms": 0.2840159982442856,
+        "p95_ms": 0.5688480108976364
+      }
+    },
+    {
+      "resolution": 2048,
+      "generator": "layer_weight",
+      "cupy": {
+        "median_ms": 1.1908159852027893,
+        "p95_ms": 1.7907744467258453
+      },
+      "ptx": {
+        "median_ms": 0.6497920155525208,
+        "p95_ms": 1.1218959569931028
+      }
+    },
+    {
+      "resolution": 4096,
+      "generator": "detail",
+      "cupy": {
+        "median_ms": 12.582399845123291,
+        "p95_ms": 12.919828748703003
+      },
+      "ptx": {
+        "median_ms": 11.206496238708496,
+        "p95_ms": 11.890570783615113
+      }
+    },
+    {
+      "resolution": 4096,
+      "generator": "surface_normal",
+      "cupy": {
+        "median_ms": 96.56955337524414,
+        "p95_ms": 99.36400718688965
+      },
+      "ptx": {
+        "median_ms": 1.5621599555015564,
+        "p95_ms": 2.063275194168091
+      }
+    },
+    {
+      "resolution": 4096,
+      "generator": "curvature",
+      "cupy": {
+        "median_ms": 13.372576236724854,
+        "p95_ms": 13.755959844589233
+      },
+      "ptx": {
+        "median_ms": 1.5620959997177124,
+        "p95_ms": 2.0800208330154417
+      }
+    },
+    {
+      "resolution": 4096,
+      "generator": "wear",
+      "cupy": {
+        "median_ms": 12.934256076812744,
+        "p95_ms": 13.59422516822815
+      },
+      "ptx": {
+        "median_ms": 1.3928319811820984,
+        "p95_ms": 1.8777648031711576
+      }
+    },
+    {
+      "resolution": 4096,
+      "generator": "layer_weight",
+      "cupy": {
+        "median_ms": 7.713392019271851,
+        "p95_ms": 8.155521202087403
+      },
+      "ptx": {
+        "median_ms": 3.258799910545349,
+        "p95_ms": 3.6361408829689026
+      }
+    }
+  ]
+}

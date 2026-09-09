@@ -203,6 +203,25 @@ and the limitations of inferred height. Acceptance of a complete material in
 the consuming project follows the checklist in the
 [integration guide](../how-to/parallax-occlusion-mapping.md).
 
+## Material cluster validation
+
+`tests/test_material_fields.py` checks both new backends and independent semantic
+references: flat detail, frequency attenuation, signed bumps/depressions, ramps,
+physical normal orientation, clamp/wrap, odd dimensions, seed repeatability,
+extreme controls and zero-width composition. `tests/test_bundle.py` exercises
+lossless authored PNGs, external detail, metadata/hash rejection, shared-height
+dependencies, deterministic regeneration, Python APIs and both CLI entry points.
+
+The Unity lab's `cluster_validate` renders the actual reusable HLSL against CPU
+analytic composition and independent shortest-arc normal references. It checks
+the imported formats and actual Lit shader's normal conventions and channel
+blend endpoints, then captures six scene stages, motion, exact zero/fade behavior
+and moving illumination. Run `scripts/test-material-lab.ps1 -UseOpenEditor`
+against the open lab, or omit that flag with the editor closed. Include the
+Windows player smoke run from `scripts/test-material-cluster-player.ps1`.
+Reports, visual review and timing conditions are documented in
+[material-cluster-validation.md](material-cluster-validation.md).
+
 ## Further Reading
 
 - [Contributing](contributing.md) for the full checklist when adding a new map type

@@ -605,3 +605,11 @@ python -m textureworks.pipeline INPUT_PATH [OPTIONS]
 | `--height-bits` | choice | `8` | Height PNG precision: `8` or `16`; other maps use 8 bits |
 
 See [CLI Quick Reference](../how-to/cli-reference.md) for detailed usage examples.
+## Material cluster API
+
+`textureworks.bundle` exposes `generate_bundle`, `generate_batch`, and `load_bundle`.
+See [versioned material bundles](material-bundles.md) for signatures and recipes.
+Both `textureworks.cupy_ref.material_fields` and `textureworks.ptx.material_fields`
+expose matching `generate_detail`, `generate_surface_normal`, `generate_curvature`,
+`generate_wear`, and `generate_layer_weight` functions. Their full signatures,
+units and output encodings are in the [material field contract](material-fields.md).

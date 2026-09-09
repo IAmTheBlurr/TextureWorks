@@ -6,6 +6,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using Unity.Pipeline.Commands;
+using TextureWorks.Editor;
 
 namespace TextureWorks.MaterialLab.Editor
 {
@@ -16,12 +18,23 @@ namespace TextureWorks.MaterialLab.Editor
         public const string ScenePath = Root + "/Scenes/MaterialLab.unity";
         private static Material charcoal, stone, trim, teal, bronze, glow;
         private static Material[,] surfaces;
+        private static Material[,] cluster;
         private static Font font;
         private static Transform architecture, exhibits, workshop;
 
         [MenuItem("TextureWorks/Rebuild demonstration scene")]
+        [CliCommand("cluster_rebuild", "Import material bundles and rebuild the demonstration scene. Saves dirty scenes as backup copies first.", Tags = new[]{"textureworks"})]
         public static void Rebuild()
         {
+            for (int i=0;i<UnityEngine.SceneManagement.SceneManager.sceneCount;++i)
+            {
+                var scene = UnityEngine.SceneManagement.SceneManager.GetSceneAt(i);
+                if (!scene.isDirty) continue;
+                Directory.CreateDirectory("Assets/Evidence/SceneBackups");
+                string backup = AssetDatabase.GenerateUniqueAssetPath("Assets/Evidence/SceneBackups/"+scene.name+".unity");
+                if (!EditorSceneManager.SaveScene(scene,backup,true))
+                    throw new InvalidOperationException("Could not preserve dirty scene before rebuilding: "+scene.name);
+            }
             Directory.CreateDirectory(Root + "/Materials");
             Directory.CreateDirectory(Root + "/Scenes");
             Directory.CreateDirectory(Root + "/Settings");
@@ -55,6 +68,18 @@ namespace TextureWorks.MaterialLab.Editor
                     m.SetFloat("_FadeStart", 12); m.SetFloat("_FadeEnd", 20);
                     EditorUtility.SetDirty(m); surfaces[material,stage] = m;
                 }
+            cluster = new Material[4,6];
+            string[] bundleNames = {"masonry","wood","painted-metal","fine-detail"};
+            for(int i=0;i<4;++i)
+            {
+                Material imported = TextureWorksBundleImporter.Import(Root+"/Bundles/"+bundleNames[i]+"/material.json");
+                for(int stage=0;stage<6;++stage)
+                {
+                    Material m = GetMaterial("cluster-"+bundleNames[i]+"-stage"+stage,imported.shader);
+                    m.CopyPropertiesFromMaterial(imported); m.SetFloat("_Stage",stage);
+                    EditorUtility.SetDirty(m); cluster[i,stage] = m;
+                }
+            }
             architecture = new GameObject("Architecture").transform;
             exhibits = new GameObject("01 Surface gallery").transform;
             workshop = new GameObject("02 Workshop").transform;
@@ -77,6 +102,7 @@ namespace TextureWorks.MaterialLab.Editor
             lab.movingLight = UnityEngine.Object.FindAnyObjectByType<LabLighting>();
             var materialList = new List<Material>(); var stages = new List<int>();
             for (int i = 0; i < 4; ++i) for (int s = 0; s < 3; ++s) { materialList.Add(surfaces[i,s]); stages.Add(s); }
+            for (int i = 0; i < 4; ++i) for (int s = 0; s < 6; ++s) { materialList.Add(cluster[i,s]); stages.Add(s); }
             lab.comparisonMaterials = materialList.ToArray(); lab.originalStages = stages.ToArray();
             lab.SetView(0);
             PlayerSettings.companyName = "TextureWorks"; PlayerSettings.productName = "TextureWorks Material Lab";
@@ -84,6 +110,7 @@ namespace TextureWorks.MaterialLab.Editor
             PlayerSettings.defaultScreenWidth = 1440; PlayerSettings.defaultScreenHeight = 900;
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
             PlayerSettings.runInBackground = true;
+            PlayerSettings.enableFrameTimingStats = true;
             EditorBuildSettings.scenes = new[] {new EditorBuildSettingsScene(ScenePath, true)};
             EditorSceneManager.SaveScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene(), ScenePath);
             AssetDatabase.SaveAssets();
@@ -231,19 +258,19 @@ namespace TextureWorks.MaterialLab.Editor
         {
             Text("Workshop heading", "02 / MATERIAL WORKSHOP", new Vector3(18,4.0f,9.72f), .12f, Color.white, workshop);
             Text("Workshop explanation", "GAME ASSEMBLIES / MOVING TASK LIGHT", new Vector3(18,3.55f,9.72f), .052f, new Color(.76f,.86f,.82f), workshop);
-            Box("Masonry inset", new Vector3(17,1.5f,9.65f), new Vector3(6,3,.22f), surfaces[1,2], workshop);
+            Box("Masonry inset", new Vector3(17,1.5f,9.65f), new Vector3(6,3,.22f), cluster[0,5], workshop);
             // Bench planks and structural framing expose UV seams, scale, and oblique views.
             for (int i = 0; i < 4; ++i)
-                Box("Oak bench plank", new Vector3(18,1.02f,5.7f + i * .31f), new Vector3(6,.14f,.3f), surfaces[3,2], workshop);
+                Box("Oak bench plank", new Vector3(18,1.02f,5.7f + i * .31f), new Vector3(6,.14f,.3f), cluster[1,5], workshop);
             foreach (float x in new[] {15.4f,20.6f}) foreach (float z in new[] {5.8f,6.6f})
                 Box("Bench leg", new Vector3(x,.46f,z), new Vector3(.12f,.92f,.12f), trim, workshop);
             Box("Bench rail", new Vector3(18,.38f,6.15f), new Vector3(5.3f,.12f,.1f), trim, workshop);
             Crate(new Vector3(12.8f,.62f,6.9f), 1.2f); Crate(new Vector3(14.3f,.46f,7.5f), .88f);
             Crate(new Vector3(12.8f,1.6f,6.9f), .72f);
-            Box("Machine cabinet", new Vector3(23,1.28f,6.6f), new Vector3(2.6f,2.56f,1.35f), teal, workshop);
+            Box("Machine cabinet", new Vector3(23,1.28f,6.6f), new Vector3(2.6f,2.56f,1.35f), cluster[2,5], workshop);
             for (int i = 0; i < 2; ++i)
             {
-                Box("Recessed cabinet panel", new Vector3(22.35f+i*1.3f,1.44f,5.9f), new Vector3(1.14f,1.9f,.075f), surfaces[2,2], workshop);
+                Box("Recessed cabinet panel", new Vector3(22.35f+i*1.3f,1.44f,5.9f), new Vector3(1.14f,1.9f,.075f), cluster[2,5], workshop);
                 Box("Cabinet handle", new Vector3(22.78f+i*.44f,1.5f,5.8f), new Vector3(.06f,.34f,.08f), bronze, workshop);
             }
             for (int i = 0; i < 3; ++i)
@@ -252,17 +279,35 @@ namespace TextureWorks.MaterialLab.Editor
                 Shape("Pipe collar", PrimitiveType.Cylinder, cylinder.transform.position + Vector3.up*.7f,
                     new Vector3(.33f,.1f,.33f), bronze, workshop);
             }
-            Box("Stone inspection pedestal", new Vector3(17,.55f,0), new Vector3(2.4f,1.1f,2.4f), surfaces[0,2], workshop);
+            Box("Stone inspection pedestal", new Vector3(17,.55f,0), new Vector3(2.4f,1.1f,2.4f), cluster[0,5], workshop);
+            Box("Woven inspection mat",new Vector3(19.2f,1.14f,6.2f),new Vector3(1.7f,.06f,.85f),cluster[3,5],workshop);
             Shape("Metal curved specimen", PrimitiveType.Sphere, new Vector3(17,1.6f,0), Vector3.one, surfaces[2,2], workshop);
             Text("Sphere caution", "CURVED UV STRESS TEST", new Vector3(17,.7f,-1.215f), .04f, Color.white, workshop);
-            Text("Future fixture heading", "NEXT / SURFACE HISTORY", new Vector3(22.5f,2.7f,-5.77f), .08f, Color.white, workshop, 180);
-            Text("Future fixture description", "DETAIL  /  WEAR  /  MATERIAL LAYERS\nReserved for the next implementation", new Vector3(22.5f,2.05f,-5.77f),
-                .052f, new Color(.75f,.86f,.8f), workshop, 180);
-            Box("Future material shelf", new Vector3(22.5f,.55f,-4.7f), new Vector3(5,1.1f,1.4f), teal, workshop);
+            Text("Surface history heading","03 / SURFACE HISTORY",new Vector3(18,4.08f,-5.77f),.1f,Color.white,workshop,180);
+            string[] titles={"MASONRY / GRIME","OAK / FINISH","PAINT / STEEL","WEAVE / DIRT"};
+            string[] labels={"DETAIL","WEAR","LAYERS"};
+            for(int material=0;material<4;++material)
+            {
+                float center=12.7f+3.55f*material;
+                Box("Surface history backing",new Vector3(center,2.25f,-5.65f),new Vector3(3.35f,2.7f,.1f),charcoal,workshop);
+                Text("Cluster material title",titles[material],new Vector3(center,3.45f,-5.55f),.052f,Color.white,workshop,180);
+                for(int stage=0;stage<3;++stage)
+                {
+                    // Reverse order on the south wall so left-to-right is detail/wear/layers.
+                    float x=center+(1-stage)*1.06f;
+                    var sample=Shape("Cluster "+titles[material]+" "+labels[stage],PrimitiveType.Quad,
+                        new Vector3(x,2.25f,-5.49f),new Vector3(.97f,1.55f,1),cluster[material,stage+3],workshop);
+                    sample.transform.rotation=Quaternion.Euler(0,180,0);
+                    Text("Cluster stage",labels[stage],new Vector3(x,1.27f,-5.50f),.045f,Color.white,workshop,180);
+                }
+                Box("Cluster specimen shelf",new Vector3(center,.55f,-5.05f),new Vector3(3.3f,1.1f,.95f),trim,workshop);
+            }
+            Text("Cluster limits","WEAR: RED / CHIPPING   GREEN / GRIME   BLUE / CURVATURE\nCabinet borders use an authored mesh-face mask. Relief leaves silhouettes unchanged.",
+                new Vector3(18,.30f,-4.54f),.030f,new Color(.75f,.86f,.8f),workshop,180);
         }
         private static void Crate(Vector3 center, float size)
         {
-            Box("Oak cargo crate", center, Vector3.one * size, surfaces[3,2], workshop);
+            Box("Oak cargo crate", center, Vector3.one * size, cluster[1,5], workshop);
             foreach (float x in new[] {-.42f,.42f}) foreach (float z in new[] {-.51f,.51f})
                 Box("Crate strap", center + new Vector3(x,0,z)*size, new Vector3(.08f,1.02f,.025f)*size, trim, workshop);
             foreach (float y in new[] {-.42f,.42f})
@@ -292,6 +337,16 @@ namespace TextureWorks.MaterialLab.Editor
             Lamp("Workshop cool fill", LightType.Point, new Vector3(22,3.3f,1), new Color(.45f,.72f,1), 3.5f, 11);
             var softFill = Lamp("Workshop soft fill", LightType.Point, new Vector3(15.8f,3.6f,3.6f), new Color(.76f,.85f,1), 12, 13);
             softFill.shadows = LightShadows.None;
+            for(int i=0;i<4;++i)
+            {
+                float x=12.7f+3.55f*i;
+                var wash=Lamp("Surface history wash",LightType.Spot,new Vector3(x,3.8f,-2.8f),new Color(1,.94f,.85f),24,7);
+                wash.spotAngle=100; wash.innerSpotAngle=65;
+                wash.transform.LookAt(new Vector3(x,2.2f,-5.5f));
+            }
+            var cabinetLight=Lamp("Cabinet inspection fill",LightType.Spot,new Vector3(21.1f,3.5f,3.5f),new Color(.9f,.95f,1),22,8);
+            cabinetLight.spotAngle=95; cabinetLight.innerSpotAngle=60;
+            cabinetLight.transform.LookAt(new Vector3(23,1.5f,6.5f));
             var taskLight = Lamp("Moving amber task light", LightType.Spot, Vector3.zero, new Color(1,.74f,.40f), 15, 13);
             taskLight.spotAngle = 100; taskLight.innerSpotAngle = 45;
             var animation = taskLight.gameObject.AddComponent<LabLighting>(); animation.ApplyPhase(0);

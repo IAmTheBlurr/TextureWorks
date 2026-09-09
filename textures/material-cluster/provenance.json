@@ -1,0 +1,32 @@
+{
+  "script": "scripts/prepare_material_cluster.py",
+  "seed": 731,
+  "size": 128,
+  "detail_size": 256,
+  "masonry_crop_normalized": [
+    0.36,
+    0.035,
+    0.63,
+    0.15
+  ],
+  "detail_seeds": {
+    "masonry": 741,
+    "wood": 742,
+    "painted-metal": 743
+  },
+  "originals": {
+    "masonry": {
+      "path": "textures/pom-validation/limestone-blocks.png",
+      "sha256": "adbade46bf846553a699925b6311154b7f0913a2713373b76fbe83b171bb73d2"
+    },
+    "wood": {
+      "path": "textures/pom-validation/oak-planks.png",
+      "sha256": "8c0e14915b2f2fa6e7b538a9fdb8e2b3214feb6201ef62dae32e210025631b6c"
+    },
+    "painted-metal": {
+      "path": "textures/pom-validation/machined-metal.png",
+      "sha256": "1aa7f66f76f5845636c920166c07d62686802d10ffb9104258399b7db8da8e77"
+    }
+  },
+  "limitation": "Authored synthetic geometric construction with generated image color; not physical reconstruction accuracy."
+}

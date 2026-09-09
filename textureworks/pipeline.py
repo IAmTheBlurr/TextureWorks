@@ -66,11 +66,23 @@ def generate_maps(
     "--height-bits", default="8", type=click.Choice(("8", "16")), show_default=True,
     help="PNG bit depth for the height map. Other maps remain 8-bit.",
 )
-def main(input_path: str, output: str, map_type: str, backend: str, height_bits: str):
+@click.option("--bundle-preset", type=click.Choice(("masonry","wood","painted-metal","fine-detail")),
+              help="Export a versioned material bundle. Use textureworks.bundle for authored inputs and layers.")
+def main(input_path: str, output: str, map_type: str, backend: str, height_bits: str, bundle_preset: str | None):
     """Generate PBR texture maps from INPUT_PATH."""
     input_path = Path(input_path)
     output_dir = Path(output)
     stem = input_path.stem
+
+    if bundle_preset is not None:
+        from textureworks.bundle import generate_bundle
+        try:
+            path = generate_bundle({"name":stem,"preset":bundle_preset,
+                "layers":[{"albedo":str(input_path.resolve())}]},output_dir,backend=backend)
+        except (ValueError,OSError) as error:
+            raise click.ClickException(str(error)) from error
+        click.echo(f"Saved material bundle -> {path}")
+        return
 
     click.echo(f"Loading {input_path}...")
     texture = load_texture(input_path)

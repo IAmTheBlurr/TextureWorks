@@ -1,0 +1,121 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: cluster-wood-stage0
+  m_Shader: {fileID: 4800000, guid: bdcd5ad27cd21eb44bd47faab39cd87f, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AOA:
+        m_Texture: {fileID: 2800000, guid: 0beb3def9997d3e4eabb3ef4ebf5af01, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _AOB:
+        m_Texture: {fileID: 2800000, guid: de1de7a1160361044bbb8ade44e10c8e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BaseMapA:
+        m_Texture: {fileID: 2800000, guid: 945ff856de93da846958bd6a33a61c4d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BaseMapB:
+        m_Texture: {fileID: 2800000, guid: 79a80259714cb2e4cb059c141a8657e6, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Cavity:
+        m_Texture: {fileID: 2800000, guid: c8376f906c0071f4fa692383801db339, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Curvature:
+        m_Texture: {fileID: 2800000, guid: 56de4364b614d3840bcafcdd7cba95eb, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailColor:
+        m_Texture: {fileID: 2800000, guid: 85065331f2b3153499c5c5bb7be0d084, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailNormal:
+        m_Texture: {fileID: 2800000, guid: 1f3a971793aa7f942bc678263d17ccf4, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Edge:
+        m_Texture: {fileID: 2800000, guid: 73637f5da5809b04c903be9adfd9c8af, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _HeightA:
+        m_Texture: {fileID: 2800000, guid: 93e25457fb9dd734ebfeb07e72cd1e4f, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _HeightB:
+        m_Texture: {fileID: 2800000, guid: 0c517f2a8e396584cb4d7d8ce0e05d3b, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Mask:
+        m_Texture: {fileID: 2800000, guid: 5d7e05d37b86a20429ea549d3bc6e58b, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetallicA:
+        m_Texture: {fileID: 2800000, guid: 272bd33f60a047c4b867976620557362, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetallicB:
+        m_Texture: {fileID: 2800000, guid: f58cca79ba9d11e4b9a874359716ec66, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalA:
+        m_Texture: {fileID: 2800000, guid: 7f1ba05df0586fd4fbc8c6031e92f205, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalB:
+        m_Texture: {fileID: 2800000, guid: 79de47e2d4e60044fb09867c73cb1cbf, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RoughnessA:
+        m_Texture: {fileID: 2800000, guid: 4c96ee7da4c87ee4aa2b2563da5a85df, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RoughnessB:
+        m_Texture: {fileID: 2800000, guid: b24cb3930f7230347ac160d642ec1598, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BlendWidth: 0.25
+    - _Coverage: 0.5
+    - _Debug: 0
+    - _DepthMeters: 0.018
+    - _DetailColorStrength: 0.3
+    - _DetailFadeEnd: 6
+    - _DetailFadeStart: 2
+    - _DetailNormalStrength: 0.22
+    - _DetailRoughness: 0.1
+    - _DetailTiling: 4
+    - _FadeEnd: 20
+    - _FadeStart: 12
+    - _HeightBias: 0.5
+    - _Quality: 1
+    - _Stage: 0
+    m_Colors:
+    - _AuthoredNormals: {r: 0, g: 0, b: 0, a: 0}
+    - _DetailSize: {r: 0.25, g: 0.25, b: 0, a: 0}
+    - _NormalEncoding: {r: 1, g: 1, b: 1, a: 1}
+    - _TextureSize: {r: 1, g: 1, b: 0, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

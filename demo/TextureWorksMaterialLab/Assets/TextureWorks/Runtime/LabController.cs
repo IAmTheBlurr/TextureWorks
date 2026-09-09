@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 namespace TextureWorks.MaterialLab
 {
@@ -17,24 +18,58 @@ namespace TextureWorks.MaterialLab
         private CharacterController body;
         private float yaw, pitch, verticalSpeed;
         private GUIStyle title, bodyText, small;
+        public float coverage = .5f, blendWidth = .25f;
+        public int debugView, quality = 1;
+        private readonly Dictionary<Material,Vector4> clusterDefaults = new Dictionary<Material,Vector4>();
         public static readonly Vector3[] ViewPositions = {
             new Vector3(0, 1.7f, -4), new Vector3(-6.1f, 1.75f, 7.35f),
-            new Vector3(12.0f, 1.7f, -2), new Vector3(20.4f, 1.7f, 4.2f)
+            new Vector3(12.0f, 1.7f, -2), new Vector3(20.4f, 1.7f, 4.2f),
+            new Vector3(19.0f,1.7f,3.1f),new Vector3(13.6f,1.7f,-3.4f),
+            new Vector3(22.8f,1.7f,-3.4f),new Vector3(21.0f,1.65f,4.9f)
         };
         public static readonly Vector3[] ViewTargets = {
             new Vector3(0, 2.2f, 9), new Vector3(-7.15f, 2.4f, 9.7f),
-            new Vector3(19, 1.4f, 5.6f), new Vector3(23, 1.5f, 6.8f)
+            new Vector3(19, 1.4f, 5.6f), new Vector3(23, 1.5f, 6.8f),
+            new Vector3(18,2.2f,-5.6f),new Vector3(12.7f,2.25f,-5.5f),
+            new Vector3(23.35f,2.25f,-5.5f),new Vector3(19.2f,1.14f,6.2f)
         };
 
-        private void Awake() { body = GetComponent<CharacterController>(); SetView(0); }
-        private void OnDisable() { SetStage(-1); Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+        private void Awake()
+        {
+            body = GetComponent<CharacterController>(); SetView(0);
+            foreach(Material material in comparisonMaterials)
+                if (IsCluster(material)) clusterDefaults[material] = new Vector4(material.GetFloat("_Coverage"),material.GetFloat("_BlendWidth"),
+                    material.GetFloat("_Debug"),material.GetFloat("_Quality"));
+        }
+        private static bool IsCluster(Material material) => material != null && material.shader.name == "TextureWorks/URP/Layered Lit";
+        private void OnDisable()
+        {
+            SetStage(-1);
+            foreach(var pair in clusterDefaults)
+            {
+                pair.Key.SetFloat("_Coverage",pair.Value.x); pair.Key.SetFloat("_BlendWidth",pair.Value.y);
+                pair.Key.SetFloat("_Debug",pair.Value.z); pair.Key.SetFloat("_Quality",pair.Value.w);
+            }
+            Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
+        }
+
+        public void SetClusterControls(float amount,float width,int debug,int preset)
+        {
+            coverage=Mathf.Clamp01(amount); blendWidth=Mathf.Clamp01(width); debugView=Mathf.Clamp(debug,0,11); quality=Mathf.Clamp(preset,0,2);
+            foreach(Material material in comparisonMaterials)
+                if(IsCluster(material))
+                {
+                    material.SetFloat("_Coverage",coverage); material.SetFloat("_BlendWidth",blendWidth);
+                    material.SetFloat("_Debug",debugView); material.SetFloat("_Quality",quality);
+                }
+        }
 
         public void SetStage(int stage)
         {
-            selectedStage = Mathf.Clamp(stage, -1, 2);
+            selectedStage = Mathf.Clamp(stage, -1, 5);
             for (int i = 0; i < comparisonMaterials.Length; ++i)
                 if (comparisonMaterials[i] != null)
-                    comparisonMaterials[i].SetFloat("_Stage", stage < 0 ? originalStages[i] : selectedStage);
+                    comparisonMaterials[i].SetFloat("_Stage", stage < 0 ? originalStages[i] : IsCluster(comparisonMaterials[i]) ? selectedStage : Mathf.Min(selectedStage,2));
         }
 
         public void SetView(int index)
@@ -63,12 +98,25 @@ namespace TextureWorks.MaterialLab
             if (keyboard.digit1Key.wasPressedThisFrame) SetStage(0);
             if (keyboard.digit2Key.wasPressedThisFrame) SetStage(1);
             if (keyboard.digit3Key.wasPressedThisFrame) SetStage(2);
+            if (keyboard.digit4Key.wasPressedThisFrame) SetStage(3);
+            if (keyboard.digit5Key.wasPressedThisFrame) SetStage(4);
+            if (keyboard.digit6Key.wasPressedThisFrame) SetStage(5);
+            if (keyboard.leftBracketKey.wasPressedThisFrame) SetClusterControls(coverage-.1f,blendWidth,debugView,quality);
+            if (keyboard.rightBracketKey.wasPressedThisFrame) SetClusterControls(coverage+.1f,blendWidth,debugView,quality);
+            if (keyboard.minusKey.wasPressedThisFrame) SetClusterControls(coverage,blendWidth-.05f,debugView,quality);
+            if (keyboard.equalsKey.wasPressedThisFrame) SetClusterControls(coverage,blendWidth+.05f,debugView,quality);
+            if (keyboard.vKey.wasPressedThisFrame) SetClusterControls(coverage,blendWidth,(debugView+1)%12,quality);
+            if (keyboard.qKey.wasPressedThisFrame) SetClusterControls(coverage,blendWidth,debugView,(quality+1)%3);
             if (keyboard.lKey.wasPressedThisFrame && movingLight != null) movingLight.animate = !movingLight.animate;
             if (keyboard.hKey.wasPressedThisFrame) showInterface = !showInterface;
             if (keyboard.f1Key.wasPressedThisFrame) SetView(0);
             if (keyboard.f2Key.wasPressedThisFrame) SetView(1);
             if (keyboard.f3Key.wasPressedThisFrame) SetView(2);
             if (keyboard.f4Key.wasPressedThisFrame) SetView(3);
+            if (keyboard.f5Key.wasPressedThisFrame) SetView(4);
+            if (keyboard.f6Key.wasPressedThisFrame) SetView(5);
+            if (keyboard.f7Key.wasPressedThisFrame) SetView(6);
+            if (keyboard.f8Key.wasPressedThisFrame) SetView(7);
             if (keyboard.rKey.wasPressedThisFrame || transform.position.y < -5) SetView(0);
             if (Cursor.lockState != CursorLockMode.Locked) return;
             if (mouse != null)
@@ -102,14 +150,15 @@ namespace TextureWorks.MaterialLab
             float width = Screen.width / factor, height = Screen.height / factor;
             Color old = GUI.color; GUI.color = new Color(.055f,.075f,.08f,.96f);
             GUI.DrawTexture(new Rect(22, 20, 555, 102), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(22, height-118, width-44, 94), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(22, height-146, width-44, 122), Texture2D.whiteTexture);
             GUI.color = old;
             GUI.Label(new Rect(40,30,520,34), "TEXTUREWORKS  /  MATERIAL LAB", title);
             string room = transform.position.x < 10 ? "01  Surface gallery · fixed lighting" : "02  Workshop · moving task light";
             GUI.Label(new Rect(40,69,520,27), room, bodyText);
-            string stage = selectedStage < 0 ? "Per-exhibit comparison" : new[] {"Base shading", "Height-derived normals", "Parallax occlusion mapping"}[selectedStage];
-            GUI.Label(new Rect(40,height-108,1100,26), "VIEW  " + stage + "     |     1 Base   2 Normal   3 POM   0 Exhibit defaults", bodyText);
-            GUI.Label(new Rect(40,height-78,1200,45), "Click to walk · WASD / mouse · Shift faster · Esc release cursor · F1–F4 viewpoints · L pause light · H hide UI · R reset\nHeight and roughness are image-derived estimates. POM leaves silhouettes and cast shadows at the mesh surface.", small);
+            string stage = selectedStage < 0 ? "Per-exhibit comparison" : new[] {"Base shading", "Surface normals", "Parallax", "Detail + fade", "Wear masks", "Material layers"}[selectedStage];
+            GUI.Label(new Rect(40,height-136,1300,26), "VIEW  " + stage + "     |     1 Base   2 Normal   3 POM   4 Detail   5 Wear   6 Layers   0 Defaults", bodyText);
+            GUI.Label(new Rect(40,height-109,1300,25),$"[ ] Coverage {coverage:0.0}    - + Blend width {blendWidth:0.00}    V Debug {debugView}    Q Quality {new[]{"Low","Balanced","High"}[quality]}",small);
+            GUI.Label(new Rect(40,height-80,1300,49), "Click to walk · WASD / mouse · Shift faster · Esc release · F1–F8 views · L pause light · H hide UI · R reset\nWorkshop heights/masks are authored fixtures. Cabinet edges use an authored face mask. POM preserves mesh silhouettes and cast shadows.", small);
             if (Cursor.lockState == CursorLockMode.Locked)
                 GUI.Label(new Rect(width / 2 - 5, height / 2 - 12, 20, 24), "+", bodyText);
         }
