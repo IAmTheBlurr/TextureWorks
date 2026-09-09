@@ -34,9 +34,7 @@ Shader "Hidden/TextureWorks/ParallaxConformance"
 
             float4 Frag(Varyings input) : SV_Target
             {
-                UnityTexture2D map = UnityBuildTexture2DStructInternal(
-                    TEXTURE2D_ARGS(_HeightMap, sampler_HeightMap),
-                    _HeightMap_TexelSize, float4(1, 1, 0, 0));
+                UnityTexture2D map = UnityBuildTexture2DStructNoScale(_HeightMap);
                 float2 uv = _TestUV.xy;
                 float2 scale = _HeightScale.xy;
                 if (_NormalOutput != 0)
