@@ -1,0 +1,9 @@
+{
+    "unity": "6000.6.0f1",
+    "gpu": "NVIDIA GeForce RTX 5070",
+    "graphicsApi": "Direct3D12",
+    "width": 1440,
+    "height": 900,
+    "errors": [],
+    "success": true
+}

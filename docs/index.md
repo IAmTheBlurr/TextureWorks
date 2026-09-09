@@ -26,6 +26,8 @@ Task-oriented recipes for specific goals.
 
 - [CLI Quick Reference](how-to/cli-reference.md): Every command, flag, and common usage pattern
 - [Parallax Occlusion Mapping in Unity](how-to/parallax-occlusion-mapping.md): Export 16-bit height and wire the HLSL function into URP Shader Graph
+- [Walk the Unity Material Lab](how-to/material-lab.md): Compare materials in a walkable Unity 6.6 gallery and workshop
+- [Next advanced material session](dev/material-cluster-one-prompt.md): Implementation prompt for detail, wear and material layers
 - [Integrate TextureWorks Into Your Asset Pipeline](how-to/integrate-pipeline.md): Python API usage, batch processing, and map chaining
 - [Write a Custom PTX Kernel](how-to/write-custom-kernel.md): Anatomy of a PTX kernel and step-by-step guide for adding a new map type
 - [Troubleshooting Common Issues](how-to/troubleshooting.md): CUDA errors, out of memory, wrong output, and parameter tuning

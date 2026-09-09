@@ -141,6 +141,14 @@ Shader Graph or target-platform build was accepted by this run.
 
 ## Acceptance boundary
 
+The harness was also run on Unity 6000.6.0f1 / SRP Core 17.6.0 with the same GPU
+and Direct3D11. All 33 analytic checks and 140 geometric comparisons passed;
+worst fixed-view p99 remained 0.01460 height texels and motion p99 was 0.00847.
+The test shaders now use `UnityBuildTexture2DStructNoScale`, which adapts to
+Unity's texture-structure constructor changes. The parallax algorithm is unchanged.
+The separate [Material Lab validation](material-lab-validation.md) covers an
+actual URP consuming shader and Windows player.
+
 The harness verifies the shipped include with Unity's real SRP texture types,
 analytic intersections and normals, generated input maps, and independent mesh
 rasterization. It does not create a URP Lit Shader Graph or a target-platform

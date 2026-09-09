@@ -78,6 +78,7 @@ CuPy provides the correctness oracle; PTX supports GPU learning and performance.
 | `tests/` | Backend parity, shape, range, and semantic checks |
 | `benchmarks/bench.py` | GPU timing for both implementations |
 | `unity/` | Reusable HLSL for consuming generated maps in Unity |
+| `demo/TextureWorksMaterialLab/` | Unity 6.6 URP gallery, workshop, controls and acceptance commands |
 | `docs/algorithms.md` | Mathematical specifications and comparison tolerances |
 
 Read [contributing](docs/dev/contributing.md) and [testing](docs/dev/testing.md)
@@ -171,6 +172,15 @@ onboarding; inspect configuration again before selecting future checks.
   The integration guide
   is `docs/how-to/parallax-occlusion-mapping.md`. Report HLSL conformance separately
   from acceptance of a consuming Shader Graph material or target platform build.
+
+- The Material Lab pins Unity 6000.6.0f1 and URP 17.6.0. Read
+  [its guide](docs/how-to/material-lab.md) and
+  [validation record](docs/dev/material-lab-validation.md) before modifying it.
+  Preserve Assets, Packages, ProjectSettings and `.meta` files in git; ignore
+  caches, builds and local evidence. Rebuilding explicitly replaces the generated
+  scene, so preserve manual scene edits first. Test with
+  `scripts/test-material-lab.ps1` and inspect player captures. The normal player
+  must keep Unity Pipeline runtime automation disabled.
 
 Use concise, connected prose in updates and final responses. Lead with the result,
 then relevant evidence and limitations. Explain what changed and why. Avoid canned

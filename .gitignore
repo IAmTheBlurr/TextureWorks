@@ -9,3 +9,20 @@ output/*.png
 output/pom-*/
 .pytest_cache/
 .idea/
+
+# Unity authoring source is versioned; local caches and evidence are disposable.
+demo/*/[Ll]ibrary/
+demo/*/[Tt]emp/
+demo/*/[Oo]bj/
+demo/*/[Ll]ogs/
+demo/*/[Uu]ser[Ss]ettings/
+demo/*/[Bb]uilds/
+demo/*/[Mm]emoryCaptures/
+demo/*/.vs/
+demo/*/*.csproj
+demo/*/*.sln
+demo/*/*.slnx
+demo/*/Evidence/
+demo/*/Assets/Evidence/
+demo/*/Assets/Evidence.meta
+output/material-lab*/

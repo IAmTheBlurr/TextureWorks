@@ -366,6 +366,7 @@ The `docs/` directory follows the [Diataxis](https://diataxis.fr/) framework:
 - [Tuning Map Parameters](docs/tutorials/tutorial-custom-params.md)
 
 **How-to Guides** (task-oriented):
+- [Walk the Unity Material Lab](docs/how-to/material-lab.md)
 - [CLI Quick Reference](docs/how-to/cli-reference.md)
 - [Integrate Into Your Asset Pipeline](docs/how-to/integrate-pipeline.md)
 - [Write a Custom PTX Kernel](docs/how-to/write-custom-kernel.md)
