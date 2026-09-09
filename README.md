@@ -276,6 +276,9 @@ Custom Function to trace this height field and sample the material at the return
 UV. It includes bounded adaptive steps, intersection refinement, and distance and
 grazing-angle fades. See the [integration guide](docs/how-to/parallax-occlusion-mapping.md)
 for ports, scale conventions, texture import settings, and Unity GPU validation.
+The optional `TextureWorksParallaxSurface` function returns a normal matched to
+the same height and fades. The [geometric validation](docs/dev/parallax-validation.md)
+compares generated materials with a displaced mesh and records camera sweeps.
 
 ## Quick Start: PTX Assembly
 

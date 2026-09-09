@@ -166,7 +166,9 @@ onboarding; inspect configuration again before selecting future checks.
   reporting median and p95 GPU time. Inspect its output for per-map errors even
   if the process exits successfully. Record hardware and environment for claims.
 - For Parallax Occlusion Mapping shader changes, use the Unity GPU harness in
-  `scripts/test-unity-parallax.ps1` and inspect its preview. The integration guide
+  `scripts/test-unity-parallax.ps1` and inspect its comparisons and camera sweeps.
+  Follow `docs/dev/parallax-validation.md` for sampling controls and evidence.
+  The integration guide
   is `docs/how-to/parallax-occlusion-mapping.md`. Report HLSL conformance separately
   from acceptance of a consuming Shader Graph material or target platform build.
 

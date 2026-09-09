@@ -66,13 +66,40 @@ fading. These paths avoid height texture reads.
 mask for a single UV square; it is not a validity test for repeated textures or
 an atlas-aware intersection test. No fragment is discarded internally.
 
+## Height-derived normal
+
+`TextureWorksParallaxSurface_float` has the same inputs and UV/depth outputs as
+`TextureWorksParallax_float`, plus a normalized tangent-space `NormalTS` output.
+At the returned UV, it takes central differences of `D = 1 - H` one texel to
+either side on each axis, using the trace's original UV gradients:
+
+```text
+dDdu = (D(u + texelU) - D(u - texelU)) / (2 * texelU)
+dDdv = (D(u + texelV) - D(u - texelV)) / (2 * texelV)
+scale = max(HeightScale, 0) * distanceFade * angularFade
+NormalTS = normalize((dDdu * scale.x, dDdv * scale.y, 1))
+```
+
+The finite difference smooths slopes over a two-texel span. The physical tangent
+frame and UV-density assumptions are the same as the ray's. Invalid/back-facing
+views and zero effective relief produce `(0, 0, 1)` without normal texture reads.
+The surface variant adds four height samples when relief is active. It retains
+the sampler's filtering; filtering can change the effective height field.
+
 ## Validation boundary
 
 The Python suite checks file precision, loading, and both generation backends.
 The Unity harness renders the shipped HLSL with the actual SRP texture structures
 and verifies known fields, adjacent R16 codes, sampler modes, bypasses, and control
-limits. The trace is a runtime shader, not a seventh static texture generator;
+limits. It also compares 40 perspective renders across four generated materials,
+five camera angles and two quality settings against a dense displaced mesh, plus
+100 frames during a camera sweep. UV
+errors use the shared interior; silhouette differences are reported separately.
+Normals have analytic slope/fade tests, and camera sweeps provide visual evidence.
+See the [validation method](../dev/parallax-validation.md).
+
+The trace is a runtime shader, not a seventh static texture generator;
 the existing CuPy/PTX height pair supplies its offline input.
 
-Shader Graph material wiring, target builds, camera motion, frame cost, and
+Shader Graph material wiring, target builds, production filtering, frame cost, and
 scene-specific depth/shadow behavior need acceptance in the consuming project.
