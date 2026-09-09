@@ -1,0 +1,68 @@
+{
+  "unity": "6000.6.0f1",
+  "gpu": "NVIDIA GeForce RTX 5070",
+  "graphicsApi": "Direct3D11",
+  "checks": [
+    "Real graphics device available",
+    "Scriptable render pipeline active",
+    "limestone-blocks-height.png imports as linear R16 with more than 256 levels",
+    "machined-metal-height.png imports as linear R16 with more than 256 levels",
+    "oak-planks-height.png imports as linear R16 with more than 256 levels",
+    "red-brick-height.png imports as linear R16 with more than 256 levels",
+    "Every renderer has supported materials",
+    "view-0.png has no significant error-magenta area",
+    "view-0.png is visibly illuminated",
+    "view-1.png has no significant error-magenta area",
+    "view-1.png is visibly illuminated",
+    "view-2.png has no significant error-magenta area",
+    "view-2.png is visibly illuminated",
+    "view-3.png has no significant error-magenta area",
+    "view-3.png is visibly illuminated",
+    "normal.png has no significant error-magenta area",
+    "normal.png is visibly illuminated",
+    "pom.png has no significant error-magenta area",
+    "pom.png is visibly illuminated",
+    "POM changes an oblique view of the same surfaces",
+    "workshop-base.png has no significant error-magenta area",
+    "workshop-base.png is visibly illuminated",
+    "workshop-normal.png has no significant error-magenta area",
+    "workshop-normal.png is visibly illuminated",
+    "light-a.png has no significant error-magenta area",
+    "light-a.png is visibly illuminated",
+    "light-b.png has no significant error-magenta area",
+    "light-b.png is visibly illuminated",
+    "Moving task light changes rendered workshop illumination",
+    "Visitor walks across gallery without falling",
+    "Visitor passes through workshop doorway with floor collision",
+    "South wall blocks visitor movement",
+    "Rendered POM shader variants compile without errors"
+  ],
+  "importedHeights": [
+    {
+      "file": "limestone-blocks-height.png",
+      "format": "R16",
+      "distinctLevels": 21892
+    },
+    {
+      "file": "machined-metal-height.png",
+      "format": "R16",
+      "distinctLevels": 18646
+    },
+    {
+      "file": "oak-planks-height.png",
+      "format": "R16",
+      "distinctLevels": 21045
+    },
+    {
+      "file": "red-brick-height.png",
+      "format": "R16",
+      "distinctLevels": 20532
+    }
+  ],
+  "renderers": 155,
+  "pomMeanAbsoluteDifference": 0.032060938634713147,
+  "movingLightMeanAbsoluteDifference": 0.0023615922294843864,
+  "captureWidth": 1440,
+  "captureHeight": 900,
+  "limitations": "Camera captures exclude the HUD. Visual review and player build are separate acceptance steps."
+}
