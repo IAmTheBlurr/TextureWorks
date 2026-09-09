@@ -165,3 +165,13 @@ def test_signatures_match():
     import inspect
     for name in ("generate_detail","generate_surface_normal","generate_curvature","generate_wear","generate_layer_weight"):
         assert inspect.signature(getattr(ref,name)) == inspect.signature(getattr(ptx,name))
+
+
+def test_physical_parameter_extrema_remain_finite(backend):
+    h = gpu([[0,1,0],[1,0,1]])
+    for spacing,depth,limit in (((1e-6,1e-6),100,1e-6),((1e6,1e6),0,1e6)):
+        normal = backend.generate_surface_normal(h,spacing,depth,"wrap")
+        curvature = backend.generate_curvature(h,spacing,depth,limit,"wrap")
+        assert bool(cp.all(cp.isfinite(normal))) and bool(cp.all(cp.isfinite(curvature)))
+        masks = backend.generate_wear(curvature,1,1,.999,1,0xffffffff)
+        assert bool(cp.all(cp.isfinite(masks) & (masks >= 0) & (masks <= 1)))

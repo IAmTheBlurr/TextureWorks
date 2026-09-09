@@ -605,7 +605,7 @@ python -m textureworks.pipeline INPUT_PATH [OPTIONS]
 | `--height-bits` | choice | `8` | Height PNG precision: `8` or `16`; other maps use 8 bits |
 
 See [CLI Quick Reference](../how-to/cli-reference.md) for detailed usage examples.
-# Material cluster API
+## Material cluster API
 
 `textureworks.bundle` exposes `generate_bundle`, `generate_batch`, and `load_bundle`.
 See [versioned material bundles](material-bundles.md) for signatures and recipes.

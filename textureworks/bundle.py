@@ -137,7 +137,7 @@ def _resolved(recipe: dict) -> dict:
     if recipe.get("schema_version",1) != SCHEMA_VERSION:
         raise ValueError("unsupported recipe schema_version")
     preset_name = recipe.get("preset","masonry")
-    if preset_name not in PRESETS:
+    if not isinstance(preset_name,str) or preset_name not in PRESETS:
         raise ValueError(f"Unknown preset: {preset_name}")
     preset = PRESETS[preset_name]
     name = recipe.get("name","material")
@@ -163,9 +163,11 @@ def _resolved(recipe: dict) -> dict:
             raise ValueError(f"{key} must be an object")
     detail = {"radius":4,"relief_depth":preset["detail_depth"],"physical_size":size,
               "tiling":4,"color_strength":.35,"normal_strength":.5,
-              "roughness_strength":.1,"fade_start":3,"fade_end":8,**recipe.get("detail",{})}
+              "roughness_strength":.1,"fade_start":3,"fade_end":8,"boundary":"wrap",**recipe.get("detail",{})}
     _unknown(detail,{"source","radius","relief_depth","physical_size","tiling","color_strength",
-                     "normal_strength","roughness_strength","fade_start","fade_end"},"detail")
+                     "normal_strength","roughness_strength","fade_start","fade_end","boundary"},"detail")
+    if detail["boundary"] not in ("clamp","wrap"):
+        raise ValueError("detail.boundary must be clamp or wrap")
     detail["physical_size"] = _size(detail["physical_size"],"detail.physical_size")
     if type(detail["radius"]) is not int or not 1 <= detail["radius"] <= 64:
         raise ValueError("detail.radius must be an integer in [1,64]")
@@ -306,10 +308,10 @@ def generate_bundle(recipe: dict, output: str | Path, *, base_dir: str | Path = 
         export("preview_weight",weight)
         export("preview_height",height_fields[0]+(height_fields[-1]-height_fields[0])*weight)
         detail_color = _linear(load_texture(detail_input[0]),detail_input[1]["color_space"])
-        detail = fields.generate_detail(detail_color,recipe["detail"]["radius"],recipe["boundary"])
+        detail = fields.generate_detail(detail_color,recipe["detail"]["radius"],recipe["detail"]["boundary"])
         ds = recipe["detail"]["physical_size"]
         detail_normal = fields.generate_surface_normal(to_grayscale(detail),
-            (ds[0]/detail.shape[1],ds[1]/detail.shape[0]),2*recipe["detail"]["relief_depth"],recipe["boundary"])
+            (ds[0]/detail.shape[1],ds[1]/detail.shape[0]),2*recipe["detail"]["relief_depth"],recipe["detail"]["boundary"])
         export("detail_color",detail); export("detail_normal",detail_normal)
         manifest = {"schema_version":1,"profile":PROFILE,"name":recipe["name"],"generator_version":__version__,
                     "backend":backend,"width":w,"height":h,"physical_size":physical,"relief_depth":depth,
@@ -345,21 +347,37 @@ def load_bundle(path: str | Path) -> dict:
     number(manifest.get("relief_depth"),"relief_depth",0,100)
     if manifest.get("boundary") not in ("clamp","wrap") or manifest.get("filter") != "trilinear":
         raise ValueError("Unsupported bundle sampling settings")
+    resolved = _resolved(manifest.get("parameters",{}))
+    for key in ("name","physical_size","relief_depth","boundary","detail","composition"):
+        if manifest.get(key) != resolved.get(key):
+            raise ValueError(f"Bundle {key} disagrees with recorded parameters")
+    if manifest.get("anisotropy") != 4:
+        raise ValueError("Bundle requires anisotropy 4")
     layers = manifest.get("layers",[])
     if not isinstance(layers,list) or not 1 <= len(layers) <= 2:
         raise ValueError("Bundle must have one or two layers")
+    if len(layers) != len(resolved["layers"]):
+        raise ValueError("Bundle layers disagree with recorded parameters")
+    for index,layer in enumerate(layers):
+        if not isinstance(layer,dict) or type(layer.get("normal_authored")) is not bool:
+            raise ValueError("Each bundle layer needs an explicit normal_authored boolean")
+        if layer["normal_authored"] != ("normal" in resolved["layers"][index]):
+            raise ValueError("Bundle normal_authored disagrees with recorded inputs")
+    entries = manifest.get("textures")
+    if not isinstance(entries,list) or not all(isinstance(entry,dict) for entry in entries):
+        raise ValueError("Bundle textures must be a list of objects")
     seen,paths = set(),set()
-    for entry in manifest.get("textures",[]):
+    for entry in entries:
         role,index = entry.get("role"),entry.get("layer")
-        if role not in _ROLES or type(index) is not int or index not in range(-1,len(layers)):
+        if not isinstance(role,str) or role not in _ROLES or type(index) is not int or index not in range(-1,len(layers)):
             raise ValueError("Invalid texture role or layer")
-        key = (index,role)
-        if key in seen or entry.get("path") in paths:
-            raise ValueError("Duplicate texture role or path")
-        seen.add(key); paths.add(entry.get("path"))
         relative = entry.get("path")
         if not isinstance(relative,str) or Path(relative).name != relative or "\\" in relative:
             raise ValueError("Texture paths must be plain filenames inside the bundle")
+        key = (index,role)
+        if key in seen or relative.casefold() in paths:
+            raise ValueError("Duplicate texture role or path")
+        seen.add(key); paths.add(relative.casefold())
         texture = (path.parent/relative).resolve()
         if texture.parent != path.parent or not texture.is_file() or _sha(texture) != entry.get("sha256"):
             raise ValueError(f"Missing or changed texture: {relative}")
@@ -380,6 +398,9 @@ def load_bundle(path: str | Path) -> dict:
             if (index,role) not in seen: raise ValueError(f"Missing layer {index} {role}")
     for role in ("mask","edge","cavity","wear","detail_color","detail_normal"):
         if (-1,role) not in seen: raise ValueError(f"Missing {role}")
+    detail_sizes = {(entry["width"],entry["height"]) for entry in entries if entry["role"] in ("detail_color","detail_normal")}
+    if len(detail_sizes) != 1:
+        raise ValueError("Detail color and normal dimensions must match")
     return manifest
 
 
@@ -390,6 +411,8 @@ def generate_batch(path: str | Path, output: str | Path, *, backend: str = "ptx"
     _unknown(batch,{"schema_version","recipes"},"batch")
     if batch.get("schema_version") != 1 or not isinstance(batch.get("recipes"),list) or not batch["recipes"]:
         raise ValueError("Batch needs schema_version 1 and a nonempty recipes list")
+    if not all(isinstance(relative,str) and relative for relative in batch["recipes"]):
+        raise ValueError("Batch recipes must be nonempty path strings")
     recipes = [(path.parent/relative).resolve() for relative in batch["recipes"]]
     resolved = [(p,_resolved(_json(p))) for p in recipes]
     names = [r["name"] for _,r in resolved]

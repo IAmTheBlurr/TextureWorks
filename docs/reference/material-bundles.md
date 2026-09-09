@@ -128,7 +128,9 @@ All presets are deterministic artistic defaults, not measured material propertie
 | fine-detail | .003 | .70 | 0 | 80 | .0003 |
 
 Physical size defaults to [1,1] meters. Common relief depth is [0,100] meters.
-Sampling defaults to wrap; clamp is also supported. The stable seed is uint32.
+Sampling defaults to wrap; clamp is also supported. Detail has an independent
+`detail.boundary` setting (default wrap), so a clamped base can repeat microdetail.
+The stable seed is uint32.
 The full resolved recipe and input/output hashes are recorded in the manifest.
 
 | Group | Parameters and defaults |
@@ -158,11 +160,13 @@ beside the manifest. Re-running setup explicitly resets those material defaults.
 The profile targets Unity 6000.6 / URP 17.6, forward opaque rendering with valid
 tangents and orthogonal UV axes. Material stages are base, height/authored normals,
 POM, detail, wear visualization and final layers. The debug selector exposes height,
-mask, signed curvature, chipping, grime, weight and normals. Coverage controls can
+mask, signed curvature, chipping, grime, weight, normals, albedo, roughness,
+metallic and AO. Coverage controls can
 be changed at runtime; 0 and 1 are exact endpoints, including zero blend width.
 The low POM setting uses 8–24 samples and 2 refinements; balanced uses 16–64/4;
 high uses 32–128/6. Thin features can be missed between march samples.
-The validation record reports measured costs and the tested Windows graphics API.
+The [validation record](../dev/material-cluster-validation.md) reports measured
+costs and the tested Windows graphics API.
 
 RNM superposes detail. Material transitions interpolate authored slope residuals
 over a normal differentiated from the composed height, retaining the mask-gradient

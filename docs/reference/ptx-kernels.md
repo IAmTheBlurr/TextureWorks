@@ -271,7 +271,7 @@ Paired loads from luminance and saturation at the same pixel offset. Single floa
 ### Optimization Notes
 
 Power function uses the same `exp2(power * log2(x))` approximation as `ao.ptx` with the same `log2(0)` guard (clamping base to 0.000001).
-# Material field kernels
+## Material field kernels
 
 `material_fields.ptx` contains `detail_blur`, `detail_residual`, `surface_geometry`,
 `wear_masks` and `layer_weight`. The wrappers in `textureworks/ptx/material_fields.py`

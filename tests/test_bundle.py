@@ -112,6 +112,10 @@ def test_changed_hash_and_metadata_cannot_pass_or_be_overwritten(tmp_path,recipe
     path.write_text(json.dumps(result))
     with pytest.raises(ValueError): load_bundle(path)
     path.write_text(original)
+    result = json.loads(original); result["detail"]["fade_end"] = -10
+    path.write_text(json.dumps(result))
+    with pytest.raises(ValueError,match="disagrees"): load_bundle(path)
+    path.write_text(original)
     mask = path.parent/"mask.png"
     mask.write_bytes((tmp_path/"height.png").read_bytes())
     with pytest.raises(ValueError,match="Missing or changed"): load_bundle(path)
@@ -136,3 +140,17 @@ def test_reject_ambiguous_image_and_traversal(tmp_path,recipe):
     manifest = json.loads(path.read_text()); manifest["textures"][0]["path"]="../color.png"
     path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError,match="filenames"): load_bundle(path)
+
+
+@pytest.mark.parametrize("change", ["textures_null","entry_null","path_object","role_object","normal_authored","detail_boundary"])
+def test_malformed_manifest_has_clear_errors(tmp_path,recipe,change):
+    path = generate_bundle(recipe,tmp_path/"bundle",base_dir=tmp_path)
+    manifest = json.loads(path.read_text())
+    if change == "textures_null": manifest["textures"] = None
+    elif change == "entry_null": manifest["textures"][0] = None
+    elif change == "path_object": manifest["textures"][0]["path"] = {}
+    elif change == "role_object": manifest["textures"][0]["role"] = {}
+    elif change == "normal_authored": manifest["layers"][0]["normal_authored"] = not manifest["layers"][0]["normal_authored"]
+    elif change == "detail_boundary": del manifest["detail"]["boundary"]
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError): load_bundle(path)
