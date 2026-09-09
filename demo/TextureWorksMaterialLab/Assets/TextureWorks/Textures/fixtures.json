@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "backend": "ptx",
+  "albedoSize": 512,
+  "heightSize": 256,
+  "heightBits": 16,
+  "heightBlurSigma": 1.5,
+  "heightContrast": 1.2,
+  "sourceProvenance": "textures/pom-validation/README.md",
+  "limitations": "Height, AO and roughness are image-derived estimates. Metallic is authored per material. Bright mortar can become raised. Normal shading is derived from the same sampled height field as POM.",
+  "materials": [
+    {
+      "name": "limestone-blocks",
+      "depthMeters": 0.06,
+      "sourceSha256": "adbade46bf846553a699925b6311154b7f0913a2713373b76fbe83b171bb73d2",
+      "outputs": {
+        "limestone-blocks-albedo.png": "6bfab5fa8619c8bbf619f256b527c38fbaea5af768b43a8e81d009e8b50a2f53",
+        "limestone-blocks-ao.png": "ab231cdf790bb1859be066cde16d36570a2f572adb5bed5b22dfd355a6d4c666",
+        "limestone-blocks-height.png": "d07835c6d45642d8d4a45ba13d7b61d691fb7eae6c082cd70ac6a600a662189b",
+        "limestone-blocks-roughness.png": "d54bfc87c7c9d40bf2b8c23de2711f29735ef5ac19c240517b39c9b8f97ac7c4"
+      }
+    },
+    {
+      "name": "red-brick",
+      "depthMeters": 0.04,
+      "sourceSha256": "55208245b8a4550a622beae5ffbcb09456e6338b3a6fd572180c185a81a6675a",
+      "outputs": {
+        "red-brick-albedo.png": "ad85cb313411b64342798e99949319834b6d8c43cc35eecbbe2820efe7f1b6cb",
+        "red-brick-ao.png": "fbc79de0459482301d15bd7870646c33e81a6ff155c91c074bc846737e458e71",
+        "red-brick-height.png": "7bd239e42b35bbf2b745c91a27961bd83707367c9f6cab0f9a69cd0c80cf505c",
+        "red-brick-roughness.png": "4d9ccf5b62473afb65daa6c4398ec2016b5f121dd14916c435e9ba0810c8baef"
+      }
+    },
+    {
+      "name": "machined-metal",
+      "depthMeters": 0.025,
+      "sourceSha256": "1aa7f66f76f5845636c920166c07d62686802d10ffb9104258399b7db8da8e77",
+      "outputs": {
+        "machined-metal-albedo.png": "ade16563174096879fbcb942b360aedc3948e016ced39c58c594789937c25a0c",
+        "machined-metal-ao.png": "ebe3c0ba05af2e9796b22665f82955fed287ee8fe4997026946cb23f8655e646",
+        "machined-metal-height.png": "7da5c660346a4a280b4ba97aafee1da304485aacafe7826b7ab072c70d1a528e",
+        "machined-metal-roughness.png": "9045f5ba57ea4eda0a9df40d4c432e6cfd020e41fdca2ae45625b0baa7f6def6"
+      }
+    },
+    {
+      "name": "oak-planks",
+      "depthMeters": 0.035,
+      "sourceSha256": "8c0e14915b2f2fa6e7b538a9fdb8e2b3214feb6201ef62dae32e210025631b6c",
+      "outputs": {
+        "oak-planks-albedo.png": "dac147820a1cc685c0b8d1c385d3af85beff1428bfebf60a3f8062701d7f0d59",
+        "oak-planks-ao.png": "471ed0f4665171c4058c63635a3531877c03ed5843b498959294b95c34382074",
+        "oak-planks-height.png": "1c6c4dd648e1e2aca3ae8536cfb9b07e5fac07c4722850df4c605f0f5331562d",
+        "oak-planks-roughness.png": "40215adee1c94cebe41a92a142c130f57c9ce0bfad563422da1cb159195403fd"
+      }
+    }
+  ]
+}

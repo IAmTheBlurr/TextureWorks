@@ -1,0 +1,10 @@
+{
+  "name": "com.textureworks.materials",
+  "version": "0.1.0",
+  "displayName": "TextureWorks Materials",
+  "description": "TextureWorks parallax HLSL and a bounded URP material demonstration shader.",
+  "unity": "6000.6",
+  "dependencies": {
+    "com.unity.render-pipelines.universal": "17.6.0"
+  }
+}
