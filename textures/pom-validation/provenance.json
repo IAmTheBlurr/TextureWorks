@@ -1,0 +1,54 @@
+{
+  "generator": "Built-in image generation tool",
+  "requested_model": "ImageGen 2.5",
+  "model_selection": "Tool exposes no model selector; exact serving model unverified",
+  "date": "2026-09-08",
+  "purpose": "POM validation inputs; generated albedo has no ground-truth height and seamlessness is not guaranteed",
+  "assets": [
+    {
+      "slug": "limestone-blocks",
+      "prompt": "Use case: photorealistic-natural. Asset type: square 1024x1024 diffuse/albedo material texture for PBR and Parallax Occlusion Mapping tests. Straight-on orthographic scan, material fills every pixel with consistent scale, flat diffuse illumination, no baked directional highlights or cast shadows, no perspective, no border, labels, text or watermark. Tileable on all four edges if possible. Natural physical detail with plausible recesses, fine irregularities and clear material structure, not a rendered object. Subject: pale warm-gray limestone masonry, staggered courses of irregular rectangular blocks, shallow dark recessed mortar joints, gently worn rounded edges and small porous stone grain. Approximately four blocks across and five courses down.",
+      "source": "exec-e3d864d1-7ec7-4b2f-b772-32d6e2ee915f.png",
+      "file": "limestone-blocks.png",
+      "sha256": "adbade46bf846553a699925b6311154b7f0913a2713373b76fbe83b171bb73d2",
+      "dimensions": [
+        1254,
+        1254
+      ]
+    },
+    {
+      "slug": "red-brick",
+      "prompt": "Use case: photorealistic-natural. Asset type: square 1024x1024 diffuse/albedo material texture for PBR and Parallax Occlusion Mapping tests. Straight-on orthographic scan, material fills every pixel with consistent scale, flat diffuse illumination, no baked directional highlights or cast shadows, no perspective, no border, labels, text or watermark. Tileable on all four edges if possible. Natural physical detail with plausible recesses, fine irregularities and clear material structure, not a rendered object. Subject: warm terracotta red brick masonry, staggered bond with gray recessed mortar, chipped brick edges and fine rough ceramic grain, subtle brick color variation. Approximately five bricks across and seven courses down.",
+      "source": "exec-e044e249-7443-49a8-8087-1874506835f9.png",
+      "file": "red-brick.png",
+      "sha256": "55208245b8a4550a622beae5ffbcb09456e6338b3a6fd572180c185a81a6675a",
+      "dimensions": [
+        1254,
+        1254
+      ]
+    },
+    {
+      "slug": "machined-metal",
+      "prompt": "Use case: photorealistic-natural. Asset type: square 1024x1024 diffuse/albedo material texture for PBR and Parallax Occlusion Mapping tests. Straight-on orthographic scan, material fills every pixel with consistent scale, flat diffuse illumination, no baked directional highlights or cast shadows, no perspective, no border, labels, text or watermark. Tileable on all four edges if possible. Natural physical detail with plausible recesses, fine irregularities and clear material structure, not a rendered object. Subject: neutral medium-gray industrial machined metal plates with narrow recessed panel seams, countersunk screw heads, shallow channels and fine brushed grain. Four large panel areas arranged as a repeating manufactured surface. No rust, graphics, warning markings or colored lights.",
+      "source": "exec-ce3e27ff-8b24-4f8d-a36e-f5b55b4b3110.png",
+      "file": "machined-metal.png",
+      "sha256": "1aa7f66f76f5845636c920166c07d62686802d10ffb9104258399b7db8da8e77",
+      "dimensions": [
+        1254,
+        1254
+      ]
+    },
+    {
+      "slug": "oak-planks",
+      "prompt": "Use case: photorealistic-natural. Asset type: square 1024x1024 diffuse/albedo material texture for PBR and Parallax Occlusion Mapping tests. Straight-on orthographic scan, material fills every pixel with consistent scale, flat diffuse illumination, no baked directional highlights or cast shadows, no perspective, no border, labels, text or watermark. Tileable on all four edges if possible. Natural physical detail with plausible recesses, fine irregularities and clear material structure, not a rendered object. Subject: weathered honey-brown oak boards with long grain, narrow dark seams, a few knots, fine longitudinal cracks and gently worn wood ridges. Six vertical boards across. Varied subtle natural wood coloration under fully diffuse flat illumination.",
+      "source": "exec-fbcff880-f0ed-49a8-bdd2-7757d0524788.png",
+      "file": "oak-planks.png",
+      "sha256": "8c0e14915b2f2fa6e7b538a9fdb8e2b3214feb6201ef62dae32e210025631b6c",
+      "dimensions": [
+        1254,
+        1254
+      ]
+    }
+  ],
+  "embedded_metadata": "All four PNG files contain C2PA softwareAgent name gpt-image version 2.0; metadata inspected, signature not independently validated"
+}
