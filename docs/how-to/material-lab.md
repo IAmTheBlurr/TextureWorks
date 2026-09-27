@@ -1,5 +1,8 @@
 # Walk through the Unity Material Lab
 
+For what's included, why the lab exists, and basic requirements, start with
+[TextureWorks in Unity](../explanation/unity-material-lab.md).
+
 The demo project is `demo/TextureWorksMaterialLab`. It uses Unity **6000.6.0f1**,
 URP **17.6.0**, Input System **1.20.0**, and Unity Pipeline **0.6.0-exp.1**.
 Its local package dependency points to `unity/` in this repository. Clone the

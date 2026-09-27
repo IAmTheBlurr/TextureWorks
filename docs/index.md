@@ -48,6 +48,7 @@ Precise technical descriptions for lookup.
 
 Background knowledge and design rationale.
 
+- [TextureWorks in Unity](explanation/unity-material-lab.md): Start here for the optional lab, reusable shaders, requirements, and Unity documentation links
 - [Why Dual Implementations?](explanation/architecture.md): The CuPy-as-oracle, PTX-as-target design philosophy
 - [PTX Assembly Primer](explanation/ptx-primer.md): PTX's role in the NVIDIA pipeline, registers, memory spaces, and a worked kernel walkthrough
 - [PBR Texture Maps and Why They Matter](explanation/pbr-maps-explained.md): How each map type contributes to rendered surfaces in game engines
@@ -68,6 +69,7 @@ For contributors and maintainers.
 | Your goal | Start here |
 |-----------|-----------|
 | Never used TextureWorks before | [Generate Your First Texture Map](tutorials/tutorial-first-map.md) |
+| Explore the Unity demo or reuse its materials | [TextureWorks in Unity](explanation/unity-material-lab.md) |
 | Need to accomplish a specific task | [CLI Quick Reference](how-to/cli-reference.md) |
 | Looking up a function signature or parameter | [Python API Reference](reference/api.md) |
 | Understanding a design decision | [Why Dual Implementations?](explanation/architecture.md) |
