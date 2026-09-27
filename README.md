@@ -121,6 +121,38 @@ The library is headless, library-first, and built for automation. It runs in bui
 
 *The same pipeline handles both hard-surface and organic/natural materials.*
 
+## Also Included: A Unity Material Lab
+
+We gave the textures their own room. Because we're cool like that.
+
+The optional **Unity Material Lab** is a walkable gallery and workshop where you
+can see the maps working together under realtime lighting. Compare base shading,
+normals, and POM side by side, then get close to the crates, cabinet, and masonry
+to inspect detail, wear, and material layers. Move the camera, pause the moving
+light, and see what each effect contributes.
+
+<table cellspacing="0" cellpadding="8" border="0">
+<tr>
+<td align="center" width="50%"><strong>The Gallery</strong><br/><sub>Same material, same light: base, normals, POM</sub></td>
+<td align="center" width="50%"><strong>The Workshop</strong><br/><sub>Detail, wear, and layers on objects you can walk around</sub></td>
+</tr>
+<tr>
+<td><img src="docs/dev/assets/material-lab/gallery.png" width="100%" alt="Unity gallery displaying limestone, brick, metal, and wood in base, normal, and POM comparisons"/></td>
+<td><img src="docs/dev/assets/material-cluster/workshop.png" width="100%" alt="Unity workshop with detail, wear, and layer exhibits behind material-covered crates and a curved specimen"/></td>
+</tr>
+</table>
+
+A map preview shows the data; walking around a lit surface shows how it behaves.
+The lab gives us a place to judge new capabilities as TextureWorks grows. The
+repository also includes reusable URP shaders and a material-bundle importer
+for your own Unity projects.
+
+**[Start with the Unity introduction](docs/explanation/unity-material-lab.md)**
+for what's included, requirements, and links to the practical guides. The demo
+uses **Unity 6000.6.0f1 / URP 17.6.0** and includes its scene and material assets.
+You can explore it without installing Python, CUDA, or CuPy; those are used to
+generate new textures. Unity is optional for the texture-generation library.
+
 ## Features
 
 - Six PBR map types: normal, height, ambient occlusion, roughness, metallic, specular
@@ -334,26 +366,9 @@ Shader Graph ports, scale conventions, and import settings. For detail, wear,
 and runtime layers, the [material bundle reference](docs/reference/material-bundles.md)
 describes the importer and **TextureWorks/URP/Layered Lit** profile.
 
-### Walk through the Material Lab
-
-<div align="center">
-<img src="docs/dev/assets/material-lab/gallery.png" width="768" alt="TextureWorks Unity gallery with limestone, brick, metal, and wood displayed as base, normal, and POM materials"/>
-</div>
-
-Open [demo/TextureWorksMaterialLab](demo/TextureWorksMaterialLab/) in Unity Hub
-with **Unity 6000.6.0f1 / URP 17.6.0**, open
-`Assets/TextureWorks/Scenes/MaterialLab.unity`, and press Play. Clone the whole
-repository so the demo's local dependency on `unity/` resolves.
-
-- **WASD / mouse:** walk and look; click the Game view to capture the mouse.
-- **1 / 2 / 3:** compare base shading, height normals, and POM.
-- **4 / 5 / 6:** inspect detail, wear masks, and material layers in the workshop.
-- **L:** pause or resume the moving task light. **0:** restore exhibit comparisons.
-
-The scene, assets, scripts, package manifests, project settings, and `.meta`
-files are tracked in Git. Caches, local builds, logs, and raw validation output
-are ignored. Selected screenshots and validation reports are retained in `docs/`.
-See the [lab guide](docs/how-to/material-lab.md) for all controls and regeneration.
+To try the shaders in the included scene, start with the
+[Unity introduction](docs/explanation/unity-material-lab.md), then use the
+[lab guide](docs/how-to/material-lab.md) for launch instructions and controls.
 
 Recorded validation covers the POM shader against analytic fields and displaced
 geometry, plus the lab's Windows player. The layered material profile was
@@ -467,6 +482,7 @@ The `docs/` directory follows the [Diataxis](https://diataxis.fr/) framework:
 - [Algorithm Specifications](docs/algorithms.md)
 
 **Explanation** (understanding):
+- [Unity Material Lab: What's Included and Why](docs/explanation/unity-material-lab.md)
 - [Why Dual Implementations?](docs/explanation/architecture.md)
 - [PTX Assembly Primer](docs/explanation/ptx-primer.md)
 - [PBR Maps Explained](docs/explanation/pbr-maps-explained.md)
