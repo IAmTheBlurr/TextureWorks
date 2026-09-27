@@ -33,10 +33,51 @@ Because this stuff really shouldn't be all that hard, it's not rocket appliance
 
 </div>
 
+### Parallax Occlusion Mapping
+
+The height map also drives **Parallax Occlusion Mapping (POM)** in Unity URP.
+TextureWorks exports 16-bit height and supplies the shader that traces it, so
+surface relief shifts and occludes as the camera moves.
+
+<div align="center">
+
+<table cellspacing="0" cellpadding="8" border="0">
+<tr>
+<td align="center"><strong>Input Diffuse</strong></td>
+<td align="center"><strong>Generated Height (16-bit)</strong></td>
+</tr>
+<tr>
+<td><img src="textures/pom-validation/limestone-blocks.png" width="256" alt="Limestone block diffuse input used for the POM example"/></td>
+<td><img src="demo/TextureWorksMaterialLab/Assets/TextureWorks/Textures/limestone-blocks-height.png" width="256" alt="Generated limestone height map, with brighter values nearer the surface"/></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><strong>Unity Camera Sweep</strong><br/><sub>Flat + height normals &nbsp; | &nbsp; Parallax Occlusion Mapping &nbsp; | &nbsp; Displaced mesh reference</sub></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/dev/assets/parallax/limestone-motion.gif" width="768" alt="Animated Unity comparison of normal shading, TextureWorks POM, and displaced geometry under the same camera and lighting"/></td>
+</tr>
+</table>
+
+</div>
+
+*The three renders use the same generated height field, camera, and lighting.
+The displaced mesh is a geometry reference. POM applies the relief through
+material sampling while preserving the original mesh silhouette.*
+
+See the [four-material comparison](docs/dev/assets/parallax/overview.png) and
+[validation record](docs/dev/parallax-validation.md), or jump to
+[Unity setup](#parallax-occlusion-mapping-in-unity). Height inferred from image
+brightness is an estimate; inspect the relief or supply authored height when
+the material's physical structure matters.
+
 ## Overview
 *One input image. Six PBR maps. Milliseconds on a GPU.*
 
 TextureWorks generates six PBR texture maps (normal, height, ambient occlusion, roughness, metallic, specular) from a single diffuse or albedo image. Every algorithm ships as dual implementations: a CuPy reference (Python-level GPU array operations) and a hand-written PTX version (NVIDIA GPU assembly). CuPy validates correctness. PTX explores the machine. Both backends produce visually identical output, verified by a tolerance-based comparison suite.
+
+The Unity URP package consumes those maps with POM shaders, including a material
+profile for detail, wear, and two-material layers. The included Material Lab
+lets you walk between comparisons under realtime lighting.
 
 The library is headless, library-first, and built for automation. It runs in build scripts, CI pipelines, and batch-processing workflows with no GUI and no display server. Deterministic algorithms with fixed parameters produce reproducible output across machines. The Python API exposes every parameter for programmatic control.
 
@@ -90,7 +131,10 @@ The library is headless, library-first, and built for automation. It runs in bui
 - Tolerance-based CuPy-vs-PTX comparison tool for correctness validation
 - Benchmark suite across three resolutions (1024, 2048, 4096) with median and p95 timing
 - 8-bit PNG output with standard PBR encoding conventions
-- Optional 16-bit height PNG export and a reusable Unity URP Parallax Occlusion Mapping HLSL include
+- Optional 16-bit height PNG export for Parallax Occlusion Mapping
+- Unity URP POM shader and Shader Graph HLSL include, with adaptive steps and distance fading
+- Material bundles and Unity import support for detail, wear, and two-material layers
+- Walkable Unity Material Lab with material comparisons and realtime lighting
 - Accepts any image format Pillow supports (PNG, JPG, BMP, TIFF)
 - RGBA input auto-converted to RGB
 
@@ -265,20 +309,59 @@ Each generator accepts parameters documented in [docs/reference/map-types.md](do
 
 ## Parallax Occlusion Mapping in Unity
 
-Export a height map with 16-bit precision alongside the other five maps:
+Export a height map with 16-bit precision alongside the other five maps. Both
+the default PTX backend and `--backend cupy` support this option:
 
 ```bash
 python -m textureworks.pipeline textures/test_texture3.png --height-bits 16 --output output/
 ```
 
-Use [TextureWorksParallax.hlsl](unity/TextureWorksParallax.hlsl) in a Shader Graph
-Custom Function to trace this height field and sample the material at the returned
-UV. It includes bounded adaptive steps, intersection refinement, and distance and
-grazing-angle fades. See the [integration guide](docs/how-to/parallax-occlusion-mapping.md)
-for ports, scale conventions, texture import settings, and Unity GPU validation.
-The optional `TextureWorksParallaxSurface` function returns a normal matched to
-the same height and fades. The [geometric validation](docs/dev/parallax-validation.md)
-compares generated materials with a displaced mesh and records camera sweeps.
+This writes `<input_stem>_height.png` as 16-bit grayscale; the other maps retain
+their usual filenames and 8-bit encoding. Import height as linear Single
+Channel/Red with an R16 platform format to retain its precision. White is the
+mesh plane; darker values describe recesses below it.
+
+The [Unity package](unity/) includes the ready-made **TextureWorks/URP/Parallax Lit**
+shader used in the lab. For your own Shader Graph, use
+[TextureWorksParallax.hlsl](unity/TextureWorksParallax.hlsl) in a Custom Function
+and sample every material channel at its returned UV. It includes adaptive
+steps, intersection refinement, and distance and grazing-angle fades. The
+optional `TextureWorksParallaxSurface` function also returns a normal matched
+to the same height and fades.
+
+Follow the [POM integration guide](docs/how-to/parallax-occlusion-mapping.md) for
+Shader Graph ports, scale conventions, and import settings. For detail, wear,
+and runtime layers, the [material bundle reference](docs/reference/material-bundles.md)
+describes the importer and **TextureWorks/URP/Layered Lit** profile.
+
+### Walk through the Material Lab
+
+<div align="center">
+<img src="docs/dev/assets/material-lab/gallery.png" width="768" alt="TextureWorks Unity gallery with limestone, brick, metal, and wood displayed as base, normal, and POM materials"/>
+</div>
+
+Open [demo/TextureWorksMaterialLab](demo/TextureWorksMaterialLab/) in Unity Hub
+with **Unity 6000.6.0f1 / URP 17.6.0**, open
+`Assets/TextureWorks/Scenes/MaterialLab.unity`, and press Play. Clone the whole
+repository so the demo's local dependency on `unity/` resolves.
+
+- **WASD / mouse:** walk and look; click the Game view to capture the mouse.
+- **1 / 2 / 3:** compare base shading, height normals, and POM.
+- **4 / 5 / 6:** inspect detail, wear masks, and material layers in the workshop.
+- **L:** pause or resume the moving task light. **0:** restore exhibit comparisons.
+
+The scene, assets, scripts, package manifests, project settings, and `.meta`
+files are tracked in Git. Caches, local builds, logs, and raw validation output
+are ignored. Selected screenshots and validation reports are retained in `docs/`.
+See the [lab guide](docs/how-to/material-lab.md) for all controls and regeneration.
+
+Recorded validation covers the POM shader against analytic fields and displaced
+geometry, plus the lab's Windows player. The layered material profile was
+validated on Direct3D11. POM preserves mesh silhouettes, collision, and cast
+shadows; relief self-shadowing is not implemented. See the
+[POM validation](docs/dev/parallax-validation.md) and
+[material validation](docs/dev/material-cluster-validation.md) for results and
+target limitations.
 
 ## Quick Start: PTX Assembly
 
@@ -346,6 +429,8 @@ tests/                    pytest suite: CuPy-vs-PTX comparison per map type
 benchmarks/               GPU timing: median/p95 at 1K, 2K, 4K resolutions
 docs/                     Diataxis-structured documentation
 textures/                 Test assets
+unity/                    Reusable URP shaders, POM HLSL and bundle importer
+demo/TextureWorksMaterialLab/  Walkable Unity gallery and workshop
 ```
 
 The CuPy and PTX modules mirror each other exactly. Both expose `generate_<map_type>()` with identical signatures. The pipeline selects between them via the `backend` parameter. Several PTX wrappers use CuPy's `gaussian_blur` for post-processing, demonstrating interoperability between hand-written kernels and CuPy array operations.
@@ -366,6 +451,7 @@ The `docs/` directory follows the [Diataxis](https://diataxis.fr/) framework:
 - [Tuning Map Parameters](docs/tutorials/tutorial-custom-params.md)
 
 **How-to Guides** (task-oriented):
+- [Use Parallax Occlusion Mapping in Unity](docs/how-to/parallax-occlusion-mapping.md)
 - [Walk the Unity Material Lab](docs/how-to/material-lab.md)
 - [CLI Quick Reference](docs/how-to/cli-reference.md)
 - [Integrate Into Your Asset Pipeline](docs/how-to/integrate-pipeline.md)
@@ -373,6 +459,7 @@ The `docs/` directory follows the [Diataxis](https://diataxis.fr/) framework:
 - [Troubleshooting](docs/how-to/troubleshooting.md)
 
 **Reference** (lookup):
+- [Material Bundles and Unity Import](docs/reference/material-bundles.md)
 - [Python API Reference](docs/reference/api.md)
 - [PTX Kernel Reference](docs/reference/ptx-kernels.md)
 - [Map Type Reference](docs/reference/map-types.md)
