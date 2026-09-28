@@ -71,17 +71,6 @@ See the [four-material comparison](docs/dev/assets/parallax/overview-20260927.pn
 brightness is an estimate; inspect the relief or supply authored height when
 the material's physical structure matters.
 
-## Overview
-*One input image. Six PBR maps. Milliseconds on a GPU.*
-
-TextureWorks generates six PBR texture maps (normal, height, ambient occlusion, roughness, metallic, specular) from a single diffuse or albedo image. Every algorithm ships as dual implementations: a CuPy reference (Python-level GPU array operations) and a hand-written PTX version (NVIDIA GPU assembly). CuPy validates correctness. PTX explores the machine. Both backends produce visually identical output, verified by a tolerance-based comparison suite.
-
-The Unity URP package consumes those maps with POM shaders, including a material
-profile for detail, wear, and two-material layers. The included Material Lab
-lets you walk between comparisons under realtime lighting.
-
-The library is headless, library-first, and built for automation. It runs in build scripts, CI pipelines, and batch-processing workflows with no GUI and no display server. Deterministic algorithms with fixed parameters produce reproducible output across machines. The Python API exposes every parameter for programmatic control.
-
 ## Supported Map Types
 
 | Map Type           | Input    | Output         | Algorithm                          |
