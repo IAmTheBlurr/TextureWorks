@@ -46,6 +46,11 @@ triptych holds albedo, AO, roughness, physical relief depth and lighting constan
 Only normal shading and parallax change. “Base” here still includes roughness
 and AO; it means the material without relief shading.
 
+The limestone gallery preset uses **9.708 cm** (`_DepthMeters = 0.09708`) across
+all three comparison stages, with 32–128 POM march samples for steep views.
+This is the selected demonstration amplitude;
+the other gallery and workshop material depths retain their own presets.
+
 The doorway on the right leads into a workshop with cargo crates, a plank bench,
 a metal cabinet, pipes, masonry and a curved UV stress specimen. Compare the
 same objects with keys 1–3 while looking along their surfaces. Pause the amber

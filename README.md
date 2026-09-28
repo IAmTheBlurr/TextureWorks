@@ -54,17 +54,18 @@ surface relief shifts and occludes as the camera moves.
 <td colspan="2" align="center"><strong>Unity Camera Sweep</strong><br/><sub>Flat + height normals &nbsp; | &nbsp; Parallax Occlusion Mapping &nbsp; | &nbsp; Displaced mesh reference</sub></td>
 </tr>
 <tr>
-<td colspan="2"><img src="docs/dev/assets/parallax/limestone-motion.gif" width="768" alt="Animated Unity comparison of normal shading, TextureWorks POM, and displaced geometry under the same camera and lighting"/></td>
+<td colspan="2"><img src="docs/dev/assets/parallax/limestone-motion-20260927.gif" width="768" alt="Animated Unity comparison of normal shading, TextureWorks POM, and displaced geometry at 9.708 cm limestone relief depth"/></td>
 </tr>
 </table>
 
 </div>
 
-*The three renders use the same generated height field, camera, and lighting.
+*The three renders use the same generated height field, camera, and lighting,
+with a limestone relief depth of 9.708 cm selected for the demonstration.
 The displaced mesh is a geometry reference. POM applies the relief through
 material sampling while preserving the original mesh silhouette.*
 
-See the [four-material comparison](docs/dev/assets/parallax/overview.png) and
+See the [four-material comparison](docs/dev/assets/parallax/overview-20260927.png) and
 [validation record](docs/dev/parallax-validation.md), or jump to
 [Unity setup](#parallax-occlusion-mapping-in-unity). Height inferred from image
 brightness is an estimate; inspect the relief or supply authored height when
@@ -137,7 +138,7 @@ light, and see what each effect contributes.
 <td align="center" width="50%"><strong>The Workshop</strong><br/><sub>Detail, wear, and layers on objects you can walk around</sub></td>
 </tr>
 <tr>
-<td><img src="docs/dev/assets/material-lab/gallery.png" width="100%" alt="Unity gallery displaying limestone, brick, metal, and wood in base, normal, and POM comparisons"/></td>
+<td><img src="docs/dev/assets/material-lab/gallery-20260927.png" width="100%" alt="Unity gallery displaying limestone at 9.708 cm relief alongside brick, metal, and wood in base, normal, and POM comparisons"/></td>
 <td><img src="docs/dev/assets/material-cluster/workshop.png" width="100%" alt="Unity workshop with detail, wear, and layer exhibits behind material-covered crates and a curved specimen"/></td>
 </tr>
 </table>

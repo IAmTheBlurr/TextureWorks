@@ -1,0 +1,35 @@
+Unity 6000.6.0f1; NVIDIA GeForce RTX 5070; Direct3D11
+constant height 0
+constant height 0.25
+constant height 0.5
+constant height 1
+R16 code 32767
+R16 code 32768
+normal incidence
+back face bypass
+zero view bypass
+grazing bypass
+angular fade halfway
+zero scale bypass
+negative scale bypass
+distance bypass
+distance halfway
+disabled distance fade
+bounded controls
+reversed step controls
+UV leaves texture
+linear ramp intersection
+reversed ray direction
+repeat sampler
+clamp sampler
+first ledge intersection
+flat height normal
+height slope normal and unequal UV scale
+normal follows distance fade
+normal is neutral after distance fade
+normal bypasses invalid view
+normal bypasses back face
+normal bypasses zero depth
+normal bypasses negative depth
+normal follows angular fade
+PASS: 33 GPU checks
