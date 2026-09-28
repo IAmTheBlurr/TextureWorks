@@ -19,7 +19,7 @@ def main() -> None:
     destination = root / "demo/TextureWorksMaterialLab/Assets/TextureWorks/Textures"
     destination.mkdir(parents=True, exist_ok=True)
     materials = []
-    for name, depth in [("limestone-blocks", 0.06), ("red-brick", 0.04),
+    for name, depth in [("limestone-blocks", 0.09708), ("red-brick", 0.04),
                         ("machined-metal", 0.025), ("oak-planks", 0.035)]:
         source = root / "textures/pom-validation" / f"{name}.png"
         with Image.open(source) as image:

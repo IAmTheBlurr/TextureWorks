@@ -37,12 +37,15 @@ hashes and the presets are saved in `fixtures.json`. The height field is 256 by
 
 | Material | Depth in world units | HeightScale per axis |
 | --- | --- | --- |
-| Limestone | 0.060 | 0.0300 |
+| Limestone | 0.09708 | 0.04854 |
 | Brick | 0.040 | 0.0200 |
 | Metal | 0.025 | 0.0125 |
 | Wood | 0.035 | 0.0175 |
 
 These are diagnostic presets. Inferred brightness is not measured geometry.
+The limestone depth was changed from 0.060 to 0.09708 world units on
+2026-09-27 for the README and showroom demonstration. The September 8 results
+below retain the original 0.060 setting; the new run is recorded separately.
 The light mortar in the brick image becomes raised, demonstrating an input
 limitation that shader correctness cannot repair.
 
@@ -73,8 +76,11 @@ have the background color.
 
 The fixed sweep uses camera yaw 0, 35, 60, 75, and -60 degrees, with a 0.55-unit
 camera elevation and a 45-degree field of view. Both 16/64 and 32/128 march
-settings use six refinement iterations. A second sweep measures 25 frames per
-material from -65 to +65 degrees at the default 16/64 settings. That makes 40
+settings use six refinement iterations. Fixture manifests can specify their
+default step counts; the current limestone preset uses 32/128, so its default
+and high cases use the same budget. Older manifests retain 16/64 defaults.
+A second sweep measures 25 frames per material from -65 to +65 degrees at
+each fixture's default settings. That makes 40
 fixed comparisons and 100 motion comparisons. These test fixture gates require:
 
 - At least 1,000 shared interior pixels.
@@ -107,6 +113,38 @@ vertices. A clipped POM edge cannot extend past the original plane silhouette.
 The initial fullscreen synthetic preview has been removed. Its artificial view
 vector had no matching camera projection, its relief was excessive relative to
 the tile size, and its normal strength described a different surface depth.
+
+## Demo depth update: 2026-09-27
+
+The limestone demonstration now uses **9.708 cm** (`0.09708` world units),
+selected for presentation rather than inferred as a measured material property.
+The showroom materials, scene builder, preparation scripts, and README captures
+use this setting. The generated height PNG is unchanged.
+
+At this depth, the first run with 16–64 samples exceeded the existing outlier
+gate at 75 degrees: **0.11993%** of measured pixels differed from displaced
+geometry by more than one height texel, against a maximum of **0.1%**.
+The [initial report](assets/parallax/report-20260927-low-steps.json) retains that
+failure. Limestone now uses **32–128 samples** in the showroom and diagnostic
+fixture. The tolerances are unchanged; the harness records sample counts per
+comparison and uses each fixture's configured defaults for its camera sweep.
+
+Unity 6000.6.0f1, RTX 5070, Direct3D11 passed **33 analytic GPU checks** and
+**140 geometry comparisons** after that change. Worst p99 error across the
+comparisons was **0.01717 height texels**; the largest fraction above one texel
+was **0.04577%**. The full Python suite passed **111 tests, zero skips**.
+
+- [Current geometry report](assets/parallax/report-20260927.json),
+  [analytic results](assets/parallax/analytic-20260927.txt), and
+  [fixture settings and hashes](assets/parallax/fixtures-20260927.json).
+- [Updated four-material overview](assets/parallax/overview-20260927.png) and
+  [limestone camera sweep](assets/parallax/limestone-motion-20260927.gif).
+- [Showroom validation](material-lab-validation.md#demo-depth-update-2026-09-27)
+  covers the actual URP material and rebuilt Windows player.
+
+The fixed comparison, all 25 unique limestone sweep frames, and showroom/player
+captures were inspected. Existing silhouette and source-height limitations
+still apply. No GitHub Actions workflow is configured; these are local results.
 
 ## Recorded validation: 2026-09-08
 

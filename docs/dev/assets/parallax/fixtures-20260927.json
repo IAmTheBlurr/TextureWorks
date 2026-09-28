@@ -1,0 +1,48 @@
+{
+  "planeSizeWorld": 2,
+  "heightBlurSigma": 1.5,
+  "heightContrast": 1.2,
+  "heightBits": 16,
+  "assets": [
+    {
+      "name": "limestone-blocks",
+      "width": 256,
+      "depthWorld": 0.09708,
+      "minSteps": 32,
+      "maxSteps": 128,
+      "sourceSha256": "adbade46bf846553a699925b6311154b7f0913a2713373b76fbe83b171bb73d2",
+      "heightSha256": "04ebb948af7dec41d0d39f2892ba7df79368dc8a22f4d67f70ca96c9391c8103",
+      "backendMaxDifference": 5.960464477539063e-08
+    },
+    {
+      "name": "red-brick",
+      "width": 256,
+      "depthWorld": 0.04,
+      "minSteps": 16,
+      "maxSteps": 64,
+      "sourceSha256": "55208245b8a4550a622beae5ffbcb09456e6338b3a6fd572180c185a81a6675a",
+      "heightSha256": "b18915290f73d535a7df42daa621d06f1d57b59b6dcae381d59b753a34e4f359",
+      "backendMaxDifference": 5.960464477539063e-08
+    },
+    {
+      "name": "machined-metal",
+      "width": 256,
+      "depthWorld": 0.025,
+      "minSteps": 16,
+      "maxSteps": 64,
+      "sourceSha256": "1aa7f66f76f5845636c920166c07d62686802d10ffb9104258399b7db8da8e77",
+      "heightSha256": "7f3fad0bbf1180cab1f545382f5bfafb27fa33a278b30e9958c6ba50cd3a512d",
+      "backendMaxDifference": 5.960464477539063e-08
+    },
+    {
+      "name": "oak-planks",
+      "width": 256,
+      "depthWorld": 0.035,
+      "minSteps": 16,
+      "maxSteps": 64,
+      "sourceSha256": "8c0e14915b2f2fa6e7b538a9fdb8e2b3214feb6201ef62dae32e210025631b6c",
+      "heightSha256": "7fb65da0491b692bd912d807a6563727abc6d06d0ba3a479272c09071e5ba267",
+      "backendMaxDifference": 5.960464477539063e-08
+    }
+  ]
+}

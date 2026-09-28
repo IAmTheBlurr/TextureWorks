@@ -42,6 +42,26 @@ HUD, rejects blank/error-magenta output, records runtime exceptions, writes
 run this probe. Windows suppresses useful backbuffer rendering for a hidden
 player window, so hidden launch is unsuitable for this screenshot check.
 
+## Demo depth update: 2026-09-27
+
+The limestone gallery materials now use `0.09708` meters (**9.708 cm**) and
+32–128 POM samples. The same depth is retained on the base and normal stages
+for controlled comparisons and in the source-generation metadata and builder.
+The other materials retain their existing settings.
+
+After updating the preset, `scripts/test-material-lab.ps1` rebuilt the Windows
+player and passed **41 lab checks** and **425 cluster checks** on Unity
+6000.6.0f1 / URP 17.6.0, RTX 5070, Direct3D11. The player smoke script completed
+at 1440×900 with **zero runtime errors**. The gallery and close oblique POM
+captures were inspected. Unity still emitted its shutdown allocation notices.
+This run does not add Direct3D12 or other-platform acceptance.
+
+- [Lab report](assets/material-lab/validation-20260927.json).
+- [Cluster report](assets/material-lab/cluster-validation-20260927.json).
+- [Player smoke report](assets/material-lab/player-d3d11-20260927.json).
+- [Updated gallery capture](assets/material-lab/gallery-20260927.png).
+- [Matching POM geometry validation and camera sweep](parallax-validation.md#demo-depth-update-2026-09-27).
+
 ## Recorded run: 2026-09-08, America/Denver
 
 Environment: Unity 6000.6.0f1, URP 17.6.0, Unity CLI 1.0.0-beta.6, Pipeline

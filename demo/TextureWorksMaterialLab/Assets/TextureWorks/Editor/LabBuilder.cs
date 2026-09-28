@@ -51,7 +51,7 @@ namespace TextureWorks.MaterialLab.Editor
             glow.EnableKeyword("_EMISSION"); glow.SetColor("_EmissionColor", new Color(.7f,1,.85f) * 2);
             surfaces = new Material[4,3];
             string[] names = {"limestone-blocks", "red-brick", "machined-metal", "oak-planks"};
-            float[] depths = {.06f,.04f,.025f,.035f};
+            float[] depths = {.09708f,.04f,.025f,.035f};
             float[] minimumRoughness = {.64f,.76f,.36f,.59f};
             for (int material = 0; material < 4; ++material)
                 for (int stage = 0; stage < 3; ++stage)
@@ -64,7 +64,8 @@ namespace TextureWorks.MaterialLab.Editor
                     m.SetFloat("_Stage", stage); m.SetFloat("_DepthMeters", depths[material]);
                     m.SetFloat("_Metallic", material == 2 ? .75f : 0);
                     m.SetFloat("_RoughnessMin", minimumRoughness[material]);
-                    m.SetFloat("_MinSteps", 16); m.SetFloat("_MaxSteps", 64);
+                    m.SetFloat("_MinSteps", material == 0 ? 32 : 16);
+                    m.SetFloat("_MaxSteps", material == 0 ? 128 : 64);
                     m.SetFloat("_FadeStart", 12); m.SetFloat("_FadeEnd", 20);
                     EditorUtility.SetDirty(m); surfaces[material,stage] = m;
                 }
