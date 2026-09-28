@@ -21,7 +21,7 @@ def main() -> None:
     root = Path(__file__).resolve().parents[1]
     args.output.mkdir(parents=True, exist_ok=True)
     entries = []
-    depths = {"limestone-blocks": 0.06, "red-brick": 0.04,
+    depths = {"limestone-blocks": 0.09708, "red-brick": 0.04,
               "machined-metal": 0.025, "oak-planks": 0.035}
     for name, depth in depths.items():
         source = root / "textures/pom-validation" / f"{name}.png"
@@ -42,7 +42,10 @@ def main() -> None:
         restored = cp.asnumpy(load_texture(png))
         # Explicit little-endian float32, top row first. Unity flips once on load.
         restored.astype("<f4").tofile(args.output / f"{name}.height-f32")
+        # The deeper limestone demonstration needs more samples at steep views.
         entries.append({"name": name, "width": 256, "depthWorld": depth,
+                        "minSteps": 32 if name == "limestone-blocks" else 16,
+                        "maxSteps": 128 if name == "limestone-blocks" else 64,
                         "sourceSha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                         "heightSha256": hashlib.sha256(png.read_bytes()).hexdigest(),
                         "backendMaxDifference": error})

@@ -10,13 +10,18 @@ using UnityEngine.Rendering;
 
 public static class TextureWorksParallaxGeometry
 {
-    [Serializable] public class Fixture { public string name; public int width; public float depthWorld; }
+    [Serializable] public class Fixture
+    {
+        public string name;
+        public int width, minSteps, maxSteps;
+        public float depthWorld;
+    }
     [Serializable] public class Fixtures { public float planeSizeWorld; public Fixture[] assets; }
     [Serializable] public class Measurement
     {
         public string material, quality;
         public float angle, meanTexels, p95Texels, p99Texels, maxTexels, overOneTexelFraction, flatMeanTexels;
-        public int samples, coverageDisagreement;
+        public int samples, coverageDisagreement, minSteps, maxSteps;
     }
     [Serializable] public class Report
     {
@@ -180,7 +185,9 @@ public static class TextureWorksParallaxGeometry
             meanTexels = (float)(total / errors.Count), p95Texels = errors[(int)(errors.Count * .95)],
             p99Texels = errors[(int)(errors.Count * .99)], maxTexels = errors[errors.Count - 1],
             overOneTexelFraction = (float)overOne / errors.Count, flatMeanTexels = (float)(flatTotal / errors.Count),
-            coverageDisagreement = disagreement };
+            coverageDisagreement = disagreement,
+            minSteps = Mathf.RoundToInt(material.GetFloat("_MinSteps")),
+            maxSteps = Mathf.RoundToInt(material.GetFloat("_MaxSteps")) };
         var heatImage = new Texture2D(Size, Size, TextureFormat.RGBAFloat, false, true);
         heatImage.SetPixels(heat); heatImage.Apply();
         Save(heatImage, fixture.name + "-" + angle + "-" + quality + "-error");
@@ -210,6 +217,9 @@ public static class TextureWorksParallaxGeometry
             meshSubdivisions = Subdivisions, renderSize = Size };
         foreach (var fixture in fixtures.assets)
         {
+            // Older fixture manifests omit sampling settings and retain 16/64.
+            int defaultMinimum = fixture.minSteps > 0 ? fixture.minSteps : 16;
+            int defaultMaximum = fixture.maxSteps > 0 ? fixture.maxSteps : 64;
             var height = LoadHeight(fixture); var albedo = LoadAlbedo(fixture.name);
             material.SetTexture("_HeightMap", height); material.SetTexture("_Albedo", albedo);
             material.SetVector("_HeightMap_TexelSize", new Vector4(1f / height.width, 1f / height.height, height.width, height.height));
@@ -218,14 +228,15 @@ public static class TextureWorksParallaxGeometry
             foreach (float angle in new[] { 0f, 35f, 60f, 75f, -60f })
             {
                 SetCamera(angle, fixture.depthWorld);
-                foreach (int maximum in new[] { 64, 128 })
+                foreach (bool highQuality in new[] { false, true })
                 {
-                    material.SetFloat("_MinSteps", maximum / 4); material.SetFloat("_MaxSteps", maximum);
-                    var m = Compare(fixture, angle, maximum == 64 ? "default" : "high",
+                    material.SetFloat("_MinSteps", highQuality ? 32 : defaultMinimum);
+                    material.SetFloat("_MaxSteps", highQuality ? 128 : defaultMaximum);
+                    var m = Compare(fixture, angle, highQuality ? "high" : "default",
                         Render(plane, 0, true), Render(plane, 1, true), Render(mesh, 2, true));
                     report.measurements.Add(m);
                 }
-                material.SetFloat("_MinSteps", 16); material.SetFloat("_MaxSteps", 64);
+                material.SetFloat("_MinSteps", defaultMinimum); material.SetFloat("_MaxSteps", defaultMaximum);
                 foreach (int mode in new[] { 0, 1, 2 })
                     Save(Render(mode == 2 ? mesh : plane, mode, false), fixture.name + "-" + angle + "-" + new[] { "flat", "pom", "mesh" }[mode]);
             }

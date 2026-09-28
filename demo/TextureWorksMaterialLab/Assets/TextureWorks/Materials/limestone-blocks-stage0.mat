@@ -41,12 +41,12 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _DepthMeters: 0.06
+    - _DepthMeters: 0.09708
     - _FadeEnd: 20
     - _FadeStart: 12
-    - _MaxSteps: 64
+    - _MaxSteps: 128
     - _Metallic: 0
-    - _MinSteps: 16
+    - _MinSteps: 32
     - _RoughnessMin: 0.64
     - _Stage: 0
     m_Colors:

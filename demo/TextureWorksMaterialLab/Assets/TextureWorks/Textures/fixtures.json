@@ -11,7 +11,7 @@
   "materials": [
     {
       "name": "limestone-blocks",
-      "depthMeters": 0.06,
+      "depthMeters": 0.09708,
       "sourceSha256": "adbade46bf846553a699925b6311154b7f0913a2713373b76fbe83b171bb73d2",
       "outputs": {
         "limestone-blocks-albedo.png": "6bfab5fa8619c8bbf619f256b527c38fbaea5af768b43a8e81d009e8b50a2f53",
